@@ -1,5 +1,7 @@
 import { Editor } from '@tiptap/react'
-import { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+
+const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
 
 interface ToolbarButtonProps {
   onClick: () => void
@@ -34,6 +36,77 @@ function Divider() {
   return <div className="w-px bg-gray-200 mx-1 self-stretch" />
 }
 
+function HeadingDropdown({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const activeLevel = HEADING_LEVELS.find((level) => editor.isActive('heading', { level }))
+  const isActive = activeLevel !== undefined
+
+  useEffect(() => {
+    if (!open) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [open])
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Heading"
+        className={`px-2.5 py-1.5 rounded-md border text-sm transition-colors cursor-pointer flex items-center gap-1
+          ${isActive
+            ? 'bg-indigo-600 border-indigo-600 text-white'
+            : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50'
+          }
+        `}
+      >
+        Heading
+        <span className="text-xs opacity-70" aria-hidden="true">▾</span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Heading levels"
+          className="absolute top-full left-0 z-10 mt-1 min-w-28 rounded-md border border-gray-200 bg-white py-1 shadow-md"
+        >
+          {HEADING_LEVELS.map((level) => (
+            <button
+              key={level}
+              type="button"
+              role="option"
+              aria-selected={editor.isActive('heading', { level })}
+              onClick={() => {
+                editor.chain().focus().toggleHeading({ level }).run()
+                setOpen(false)
+              }}
+              className={`block w-full px-3 py-1.5 text-left text-sm transition-colors cursor-pointer
+                ${editor.isActive('heading', { level })
+                  ? 'bg-indigo-50 text-indigo-700 font-medium'
+                  : 'text-gray-800 hover:bg-gray-50'
+                }
+              `}
+            >
+              H{level}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Toolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
 
@@ -57,12 +130,7 @@ export default function Toolbar({ editor }: { editor: Editor | null }) {
       <ToolbarButton label="Paragraph" isActive={editor.isActive('paragraph')} onClick={() => editor.chain().focus().setParagraph().run()}>
         P
       </ToolbarButton>
-      <ToolbarButton label="Heading 1" isActive={editor.isActive('heading', { level: 1 })} onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}>
-        H1
-      </ToolbarButton>
-      <ToolbarButton label="Heading 2" isActive={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>
-        H2
-      </ToolbarButton>
+      <HeadingDropdown editor={editor} />
       <ToolbarButton label="Bullet list" isActive={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()}>
         • List
       </ToolbarButton>
