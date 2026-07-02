@@ -215,6 +215,14 @@ export default function Toolbar({ editor }: { editor: Editor | null }) {
       <ToolbarButton label="Redo" disabled={!editor.can().redo()} onClick={() => editor.chain().focus().redo().run()}>
         ↻
       </ToolbarButton>
+
+      <ToolbarButton label="+agent" onClick={() => {
+
+        console.log('placeholder for agent button, should open a modal to add a new agent')
+      }}>
+        +agent
+
+      </ToolbarButton>
     </div>
   )
 }
