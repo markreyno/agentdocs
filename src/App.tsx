@@ -9,20 +9,18 @@ export default function App() {
 
   if (page === 'editor') {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col items-center px-4 py-8">
-        <div className="w-full max-w-3xl">
-          <div className="flex items-center justify-between mb-5">
-            <button
-              onClick={() => setPage('landing')}
-              className="text-sm text-gray-500 hover:text-gray-800 transition-colors font-sans cursor-pointer bg-none border-none"
-            >
-              ← Back
-            </button>
-            <span className="text-lg font-bold font-serif">agentdocs</span>
-            <div className="w-12" />
-          </div>
-          <TiptapEditor />
+      <div className="min-h-screen bg-gray-50 flex flex-col">
+        <div className="flex items-center justify-between px-4 py-4 max-w-[8.5in] w-full mx-auto">
+          <button
+            onClick={() => setPage('landing')}
+            className="text-sm text-gray-500 hover:text-gray-800 transition-colors font-sans cursor-pointer bg-none border-none"
+          >
+            ← Back
+          </button>
+          <span className="text-lg font-bold font-serif">agentdocs</span>
+          <div className="w-12" />
         </div>
+        <TiptapEditor />
       </div>
     )
   }

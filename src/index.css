@@ -107,3 +107,65 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+.editor-workspace {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: calc(100svh - 4rem);
+}
+
+.editor-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 1rem 2rem;
+  background: #f3f4f6;
+}
+
+.editor-document {
+  position: relative;
+  width: 8.5in;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.editor-pages {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.editor-page {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 11in;
+  background: #fff;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.editor-content {
+  position: relative;
+  z-index: 1;
+  padding: 1in;
+  min-height: 11in;
+  box-sizing: border-box;
+}
+
+.editor-content .tiptap,
+.editor-content .ProseMirror {
+  outline: none;
+  border: none;
+  min-height: 9in;
+  color: var(--text-h);
+}
+
+.editor-content .tiptap:focus,
+.editor-content .ProseMirror:focus,
+.editor-content .tiptap:focus-visible,
+.editor-content .ProseMirror:focus-visible {
+  outline: none;
+  box-shadow: none;
+}

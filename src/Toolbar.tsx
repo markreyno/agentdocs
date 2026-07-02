@@ -1,5 +1,5 @@
 import { Editor } from '@tiptap/react'
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from 'react'
 
 const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
 
@@ -7,6 +7,16 @@ const LIST_TYPES = [
   { label: 'Bullet list', type: 'bulletList' as const, command: 'toggleBulletList' as const },
   { label: 'Numbered list', type: 'orderedList' as const, command: 'toggleOrderedList' as const },
 ]
+
+const TEXT_COLORS = [
+  { label: 'Black', value: '#000000' },
+  { label: 'Grey', value: '#6b7280' },
+  { label: 'White', value: '#ffffff' },
+] as const
+
+function keepEditorSelection(event: ReactMouseEvent) {
+  event.preventDefault()
+}
 
 interface ToolbarButtonProps {
   onClick: () => void
@@ -20,6 +30,7 @@ function ToolbarButton({ onClick, isActive = false, disabled = false, label, chi
   return (
     <button
       type="button"
+      onMouseDown={keepEditorSelection}
       onClick={onClick}
       disabled={disabled}
       aria-label={label}
@@ -69,6 +80,7 @@ function HeadingDropdown({ editor }: { editor: Editor }) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        onMouseDown={keepEditorSelection}
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -95,6 +107,7 @@ function HeadingDropdown({ editor }: { editor: Editor }) {
               key={level}
               type="button"
               role="option"
+              onMouseDown={keepEditorSelection}
               aria-selected={editor.isActive('heading', { level })}
               onClick={() => {
                 editor.chain().focus().toggleHeading({ level }).run()
@@ -128,6 +141,7 @@ function ListDropdown({ editor }: { editor: Editor }) {
     <div ref={containerRef} className="relative">
       <button
         type="button"
+        onMouseDown={keepEditorSelection}
         onClick={() => setOpen((prev) => !prev)}
         aria-haspopup="listbox"
         aria-expanded={open}
@@ -154,6 +168,7 @@ function ListDropdown({ editor }: { editor: Editor }) {
               key={type}
               type="button"
               role="option"
+              onMouseDown={keepEditorSelection}
               aria-selected={editor.isActive(type)}
               onClick={() => {
                 editor.chain().focus()[command]().run()
@@ -175,11 +190,83 @@ function ListDropdown({ editor }: { editor: Editor }) {
   )
 }
 
+function ColorDropdown({ editor }: { editor: Editor }) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  const currentColor = editor.getAttributes('textStyle').color as string | undefined
+  const isActive = currentColor !== undefined
+
+  useClickOutside(containerRef, open, () => setOpen(false))
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onMouseDown={keepEditorSelection}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Text color"
+        className={`px-2.5 py-1.5 rounded-md border text-sm transition-colors cursor-pointer flex items-center gap-1.5
+          ${isActive
+            ? 'bg-indigo-600 border-indigo-600 text-white'
+            : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50'
+          }
+        `}
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block w-3 h-3 rounded-sm border border-gray-300"
+          style={{ backgroundColor: currentColor ?? '#000000' }}
+        />
+        Color
+        <span className="text-xs opacity-70" aria-hidden="true">▾</span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label="Text colors"
+          className="absolute top-full left-0 z-10 mt-1 min-w-36 rounded-md border border-gray-200 bg-white py-1 shadow-md"
+        >
+          {TEXT_COLORS.map(({ label, value }) => (
+            <button
+              key={value}
+              type="button"
+              role="option"
+              onMouseDown={keepEditorSelection}
+              aria-selected={currentColor === value}
+              onClick={() => {
+                editor.chain().focus().setColor(value).run()
+                setOpen(false)
+              }}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors cursor-pointer
+                ${currentColor === value
+                  ? 'bg-indigo-50 text-indigo-700 font-medium'
+                  : 'text-gray-800 hover:bg-gray-50'
+                }
+              `}
+            >
+              <span
+                aria-hidden="true"
+                className="inline-block w-3 h-3 rounded-sm border border-gray-300 shrink-0"
+                style={{ backgroundColor: value }}
+              />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Toolbar({ editor }: { editor: Editor | null }) {
   if (!editor) return null
 
   return (
-    <div className="flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-gray-50 rounded-t-lg">
+    <div className="sticky top-0 z-20 flex flex-wrap gap-1 p-2 border-b border-gray-200 bg-white/95 backdrop-blur-sm w-full max-w-[8.5in] mx-auto">
       <ToolbarButton label="Bold" isActive={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()}>
         <b>B</b>
       </ToolbarButton>
@@ -192,6 +279,7 @@ export default function Toolbar({ editor }: { editor: Editor | null }) {
       <ToolbarButton label="Inline code" isActive={editor.isActive('code')} onClick={() => editor.chain().focus().toggleCode().run()}>
         {'</>'}
       </ToolbarButton>
+      <ColorDropdown editor={editor} />
 
       <Divider />
 
