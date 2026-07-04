@@ -1,0 +1,13 @@
+# agentdocs production dependencies (Node.js)
+# Install with: npm install
+# Requires Node.js 18+
+
+@tailwindcss/vite@4.3.2
+@tiptap/extension-color@3.27.1
+@tiptap/extension-text-style@3.27.1
+@tiptap/pm@3.27.1
+@tiptap/react@3.27.1
+@tiptap/starter-kit@3.27.1
+react@19.2.7
+react-dom@19.2.7
+tailwindcss@4.3.2
