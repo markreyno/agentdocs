@@ -14,6 +14,42 @@ const TEXT_COLORS = [
   { label: 'White', value: '#ffffff' },
 ] as const
 
+const BACKGROUND_COLORS = [
+  { label: 'Yellow', value: '#fef08a' },
+  { label: 'Green', value: '#bbf7d0' },
+  { label: 'Blue', value: '#bfdbfe' },
+  { label: 'Pink', value: '#fbcfe8' },
+] as const
+
+const FONT_FAMILIES = [
+  { label: 'Default', value: 'default' },
+  { label: 'Arial', value: 'Arial, sans-serif' },
+  { label: 'Georgia', value: 'Georgia, serif' },
+  { label: 'Times New Roman', value: '"Times New Roman", Times, serif' },
+  { label: 'Courier New', value: '"Courier New", monospace' },
+] as const
+
+const FONT_SIZES = [
+  { label: 'Small', value: '12px' },
+  { label: 'Normal', value: '16px' },
+  { label: 'Large', value: '20px' },
+  { label: 'Extra large', value: '24px' },
+] as const
+
+const LINE_HEIGHTS = [
+  { label: 'Single', value: '1' },
+  { label: '1.15', value: '1.15' },
+  { label: '1.5', value: '1.5' },
+  { label: 'Double', value: '2' },
+] as const
+
+const TEXT_ALIGNS = [
+  { label: 'Align left', value: 'left', icon: '⬅' },
+  { label: 'Align center', value: 'center', icon: '⬌' },
+  { label: 'Align right', value: 'right', icon: '➡' },
+  { label: 'Justify', value: 'justify', icon: '☰' },
+] as const
+
 function keepEditorSelection(event: ReactMouseEvent) {
   event.preventDefault()
 }
@@ -65,6 +101,102 @@ function useClickOutside(ref: React.RefObject<HTMLElement | null>, open: boolean
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open, onClose, ref])
+}
+
+interface StyleOption {
+  label: string
+  value: string
+}
+
+interface StyleOptionDropdownProps {
+  buttonLabel: string
+  listAriaLabel: string
+  options: readonly StyleOption[]
+  selectedValue: string | undefined
+  isActive?: boolean
+  onSelect: (value: string) => void
+  renderButtonLeading?: (selectedValue: string | undefined) => ReactNode
+  renderOptionLeading?: (value: string) => ReactNode
+}
+
+function StyleOptionDropdown({
+  buttonLabel,
+  listAriaLabel,
+  options,
+  selectedValue,
+  isActive = selectedValue !== undefined,
+  onSelect,
+  renderButtonLeading,
+  renderOptionLeading,
+}: StyleOptionDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useClickOutside(containerRef, open, () => setOpen(false))
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onMouseDown={keepEditorSelection}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={buttonLabel}
+        className={`px-2.5 py-1.5 rounded-md border text-sm transition-colors cursor-pointer flex items-center gap-1.5
+          ${isActive
+            ? 'bg-indigo-600 border-indigo-600 text-white'
+            : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50'
+          }
+        `}
+      >
+        {renderButtonLeading?.(selectedValue)}
+        {buttonLabel}
+        <span className="text-xs opacity-70" aria-hidden="true">▾</span>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          aria-label={listAriaLabel}
+          className="absolute top-full left-0 z-10 mt-1 min-w-36 rounded-md border border-gray-200 bg-white py-1 shadow-md"
+        >
+          {options.map(({ label, value }) => (
+            <button
+              key={value}
+              type="button"
+              role="option"
+              onMouseDown={keepEditorSelection}
+              aria-selected={selectedValue === value}
+              onClick={() => {
+                onSelect(value)
+                setOpen(false)
+              }}
+              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors cursor-pointer
+                ${selectedValue === value
+                  ? 'bg-indigo-50 text-indigo-700 font-medium'
+                  : 'text-gray-800 hover:bg-gray-50'
+                }
+              `}
+            >
+              {renderOptionLeading?.(value)}
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ColorSwatch({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      className="inline-block w-3 h-3 rounded-sm border border-gray-300 shrink-0"
+      style={{ backgroundColor: color }}
+    />
+  )
 }
 
 function HeadingDropdown({ editor }: { editor: Editor }) {
@@ -191,74 +323,83 @@ function ListDropdown({ editor }: { editor: Editor }) {
 }
 
 function ColorDropdown({ editor }: { editor: Editor }) {
-  const [open, setOpen] = useState(false)
-  const containerRef = useRef<HTMLDivElement>(null)
-
   const currentColor = editor.getAttributes('textStyle').color as string | undefined
-  const isActive = currentColor !== undefined
-
-  useClickOutside(containerRef, open, () => setOpen(false))
 
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onMouseDown={keepEditorSelection}
-        onClick={() => setOpen((prev) => !prev)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label="Text color"
-        className={`px-2.5 py-1.5 rounded-md border text-sm transition-colors cursor-pointer flex items-center gap-1.5
-          ${isActive
-            ? 'bg-indigo-600 border-indigo-600 text-white'
-            : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-50'
-          }
-        `}
-      >
-        <span
-          aria-hidden="true"
-          className="inline-block w-3 h-3 rounded-sm border border-gray-300"
-          style={{ backgroundColor: currentColor ?? '#000000' }}
-        />
-        Color
-        <span className="text-xs opacity-70" aria-hidden="true">▾</span>
-      </button>
+    <StyleOptionDropdown
+      buttonLabel="Color"
+      listAriaLabel="Text colors"
+      options={TEXT_COLORS}
+      selectedValue={currentColor}
+      onSelect={(value) => editor.chain().focus().setColor(value).run()}
+      renderButtonLeading={() => <ColorSwatch color={currentColor ?? '#000000'} />}
+      renderOptionLeading={(value) => <ColorSwatch color={value} />}
+    />
+  )
+}
 
-      {open && (
-        <div
-          role="listbox"
-          aria-label="Text colors"
-          className="absolute top-full left-0 z-10 mt-1 min-w-36 rounded-md border border-gray-200 bg-white py-1 shadow-md"
-        >
-          {TEXT_COLORS.map(({ label, value }) => (
-            <button
-              key={value}
-              type="button"
-              role="option"
-              onMouseDown={keepEditorSelection}
-              aria-selected={currentColor === value}
-              onClick={() => {
-                editor.chain().focus().setColor(value).run()
-                setOpen(false)
-              }}
-              className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors cursor-pointer
-                ${currentColor === value
-                  ? 'bg-indigo-50 text-indigo-700 font-medium'
-                  : 'text-gray-800 hover:bg-gray-50'
-                }
-              `}
-            >
-              <span
-                aria-hidden="true"
-                className="inline-block w-3 h-3 rounded-sm border border-gray-300 shrink-0"
-                style={{ backgroundColor: value }}
-              />
-              {label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
+function BackgroundColorDropdown({ editor }: { editor: Editor }) {
+  const currentColor = editor.getAttributes('textStyle').backgroundColor as string | undefined
+
+  return (
+    <StyleOptionDropdown
+      buttonLabel="Highlight"
+      listAriaLabel="Background colors"
+      options={BACKGROUND_COLORS}
+      selectedValue={currentColor}
+      onSelect={(value) => editor.chain().focus().setBackgroundColor(value).run()}
+      renderButtonLeading={() => <ColorSwatch color={currentColor ?? '#fef08a'} />}
+      renderOptionLeading={(value) => <ColorSwatch color={value} />}
+    />
+  )
+}
+
+function FontFamilyDropdown({ editor }: { editor: Editor }) {
+  const currentFamily = editor.getAttributes('textStyle').fontFamily as string | undefined
+
+  return (
+    <StyleOptionDropdown
+      buttonLabel="Font"
+      listAriaLabel="Font families"
+      options={FONT_FAMILIES}
+      selectedValue={currentFamily ?? 'default'}
+      isActive={currentFamily !== undefined}
+      onSelect={(value) => {
+        if (value === 'default') {
+          editor.chain().focus().unsetFontFamily().run()
+        } else {
+          editor.chain().focus().setFontFamily(value).run()
+        }
+      }}
+    />
+  )
+}
+
+function FontSizeDropdown({ editor }: { editor: Editor }) {
+  const currentSize = editor.getAttributes('textStyle').fontSize as string | undefined
+
+  return (
+    <StyleOptionDropdown
+      buttonLabel="Size"
+      listAriaLabel="Font sizes"
+      options={FONT_SIZES}
+      selectedValue={currentSize}
+      onSelect={(value) => editor.chain().focus().setFontSize(value).run()}
+    />
+  )
+}
+
+function LineHeightDropdown({ editor }: { editor: Editor }) {
+  const currentLineHeight = editor.getAttributes('textStyle').lineHeight as string | undefined
+
+  return (
+    <StyleOptionDropdown
+      buttonLabel="Line"
+      listAriaLabel="Line heights"
+      options={LINE_HEIGHTS}
+      selectedValue={currentLineHeight}
+      onSelect={(value) => editor.chain().focus().setLineHeight(value).run()}
+    />
   )
 }
 
@@ -280,6 +421,10 @@ export default function Toolbar({ editor }: { editor: Editor | null }) {
         {'</>'}
       </ToolbarButton>
       <ColorDropdown editor={editor} />
+      <BackgroundColorDropdown editor={editor} />
+      <FontFamilyDropdown editor={editor} />
+      <FontSizeDropdown editor={editor} />
+      <LineHeightDropdown editor={editor} />
 
       <Divider />
 
@@ -294,6 +439,16 @@ export default function Toolbar({ editor }: { editor: Editor | null }) {
       <ToolbarButton label="Code block" isActive={editor.isActive('codeBlock')} onClick={() => editor.chain().focus().toggleCodeBlock().run()}>
         {'{ }'}
       </ToolbarButton>
+      {TEXT_ALIGNS.map(({ label, value, icon }) => (
+        <ToolbarButton
+          key={value}
+          label={label}
+          isActive={editor.isActive({ textAlign: value })}
+          onClick={() => editor.chain().focus().setTextAlign(value).run()}
+        >
+          {icon}
+        </ToolbarButton>
+      ))}
 
       <Divider />
 

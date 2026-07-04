@@ -1,6 +1,7 @@
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
-import { TextStyle, Color } from '@tiptap/extension-text-style'
+import { TextStyleKit } from '@tiptap/extension-text-style'
+import TextAlign from '@tiptap/extension-text-align'
 import { useEffect, useState } from 'react'
 import Toolbar from './Toolbar'
 
@@ -11,7 +12,11 @@ export default function TiptapEditor() {
   const [pageCount, setPageCount] = useState(1)
 
   const editor = useEditor({
-    extensions: [StarterKit, TextStyle, Color],
+    extensions: [
+      StarterKit,
+      TextStyleKit,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    ],
     content: '<p></p>',
   })
 
