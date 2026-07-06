@@ -403,7 +403,12 @@ function LineHeightDropdown({ editor }: { editor: Editor }) {
   )
 }
 
-export default function Toolbar({ editor }: { editor: Editor | null }) {
+interface ToolbarProps {
+  editor: Editor | null
+  onToggleAgent: () => void
+}
+
+export default function Toolbar({ editor, onToggleAgent }: ToolbarProps) {
   if (!editor) return null
 
   return (
@@ -459,12 +464,8 @@ export default function Toolbar({ editor }: { editor: Editor | null }) {
         ↻
       </ToolbarButton>
 
-      <ToolbarButton label="+agent" onClick={() => {
-
-        console.log('placeholder for agent button, should open a modal to add a new agent')
-      }}>
+      <ToolbarButton label="+agent" onClick={onToggleAgent}>
         +agent
-
       </ToolbarButton>
     </div>
   )

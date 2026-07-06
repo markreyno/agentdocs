@@ -4,12 +4,14 @@ import { TextStyleKit } from '@tiptap/extension-text-style'
 import TextAlign from '@tiptap/extension-text-align'
 import { useEffect, useState } from 'react'
 import Toolbar from './Toolbar'
+import AgentSidebar from './AgentSidebar'
 
 const PAGE_HEIGHT_PX = 1056 // 11in at 96dpi
 const PAGE_GAP_PX = 24
 
 export default function TiptapEditor() {
   const [pageCount, setPageCount] = useState(1)
+  const [agentOpen, setAgentOpen] = useState(false)
 
   const editor = useEditor({
     extensions: [
@@ -44,25 +46,28 @@ export default function TiptapEditor() {
     pageCount * PAGE_HEIGHT_PX + (pageCount - 1) * PAGE_GAP_PX
 
   return (
-    <div className="editor-workspace">
-      <Toolbar editor={editor} />
-      <div className="editor-scroll">
-        <div
-          className="editor-document"
-          style={{ minHeight: documentHeight }}
-        >
-          <div className="editor-pages" aria-hidden="true">
-            {Array.from({ length: pageCount }, (_, index) => (
-              <div
-                key={index}
-                className="editor-page"
-                style={{ top: index * (PAGE_HEIGHT_PX + PAGE_GAP_PX) }}
-              />
-            ))}
+    <div className="flex w-full">
+      <div className="editor-workspace flex-1 min-w-0">
+        <Toolbar editor={editor} onToggleAgent={() => setAgentOpen((v) => !v)} />
+        <div className="editor-scroll">
+          <div
+            className="editor-document"
+            style={{ minHeight: documentHeight }}
+          >
+            <div className="editor-pages" aria-hidden="true">
+              {Array.from({ length: pageCount }, (_, index) => (
+                <div
+                  key={index}
+                  className="editor-page"
+                  style={{ top: index * (PAGE_HEIGHT_PX + PAGE_GAP_PX) }}
+                />
+              ))}
+            </div>
+            <EditorContent editor={editor} className="editor-content" />
           </div>
-          <EditorContent editor={editor} className="editor-content" />
         </div>
       </div>
+      <AgentSidebar editor={editor} open={agentOpen} onClose={() => setAgentOpen(false)} />
     </div>
   )
 }
