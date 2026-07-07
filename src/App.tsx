@@ -1,15 +1,25 @@
 import { useState } from 'react'
 import LandingPage from './LandingPage'
+import LearnPage from './LearnPage'
 import SignInPage from './SignInPage'
 import TiptapEditor from './TiptapEditor'
 
-type Page = 'landing' | 'signin' | 'editor'
+type Page = 'landing' | 'signin' | 'learn' | 'editor'
 
 export default function App() {
   const [page, setPage] = useState<Page>('landing')
 
   if (page === 'signin') {
     return <SignInPage onBack={() => setPage('landing')} />
+  }
+
+  if (page === 'learn') {
+    return (
+      <LearnPage
+        onBack={() => setPage('landing')}
+        onGetStarted={() => setPage('editor')}
+      />
+    )
   }
 
   if (page === 'editor') {
@@ -34,6 +44,7 @@ export default function App() {
     <LandingPage
       onGetStarted={() => setPage('editor')}
       onSignIn={() => setPage('signin')}
+      onLearn={() => setPage('learn')}
     />
   )
 }
