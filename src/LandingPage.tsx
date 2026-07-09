@@ -46,7 +46,7 @@ export default function LandingPage({ onGetStarted, onSignIn, onLearn, onDownloa
             onClick={onGetStarted}
             className="px-5 py-2 rounded-md border border-white/30 text-gray-200 text-sm font-sans hover:bg-white/10 transition-colors cursor-pointer"
           >
-            Open Editor
+            Open Demo
           </button>
           <button
             onClick={onDownload}

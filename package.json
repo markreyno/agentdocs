@@ -3,12 +3,38 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "main": "dist-electron/main.cjs",
   "scripts": {
     "dev": "concurrently -n web,api \"npm:dev:web\" \"npm:dev:api\"",
     "dev:web": "vite",
     "dev:api": "tsx watch server/index.ts",
+    "dev:desktop": "concurrently -n web,electron-build,electron \"vite --port 5183 --strictPort\" \"tsc -p tsconfig.electron.json -w\" \"wait-on tcp:5183 dist-electron/main.cjs && cross-env ELECTRON_START_URL=http://localhost:5183 electron .\"",
     "build": "tsc -b && vite build",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "dist:mac": "npm run build && npm run build:electron && electron-builder --mac",
+    "dist:win": "npm run build && npm run build:electron && electron-builder --win",
     "preview": "vite preview"
+  },
+  "build": {
+    "appId": "com.agentdocs.app",
+    "productName": "agentdocs",
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "directories": {
+      "output": "release"
+    },
+    "mac": {
+      "target": "dmg",
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.110.0",
@@ -32,8 +58,12 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.5.2",
     "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "electron": "^41.7.1",
+    "electron-builder": "^26.15.3",
     "tsx": "^4.23.0",
     "typescript": "~5.8.3",
-    "vite": "^6.3.5"
+    "vite": "^6.3.5",
+    "wait-on": "^9.0.10"
   }
 }

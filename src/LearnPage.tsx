@@ -6,7 +6,7 @@ interface LearnPageProps {
 const steps = [
   {
     title: '1. Open the editor',
-    body: 'Click "Open Editor" or "Get Started" from the home page. You land on a clean, paginated canvas — like a word processor, built for long-form writing.',
+    body: 'Click "Open Demo" or "Get Started" from the home page. You land on a clean, paginated canvas — like a word processor, built for long-form writing.',
   },
   {
     title: '2. Write your draft',
