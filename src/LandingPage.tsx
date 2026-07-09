@@ -2,6 +2,7 @@ interface LandingPageProps {
   onGetStarted: () => void
   onSignIn: () => void
   onLearn: () => void
+  onDownload?: () => void
 }
 
 const features = [
@@ -22,7 +23,7 @@ const features = [
   },
 ]
 
-export default function LandingPage({ onGetStarted, onSignIn, onLearn }: LandingPageProps) {
+export default function LandingPage({ onGetStarted, onSignIn, onLearn, onDownload }: LandingPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] via-[#1a1a2e] to-[#16213e] text-gray-100 flex flex-col font-serif">
       {/* Nav */}
@@ -46,6 +47,12 @@ export default function LandingPage({ onGetStarted, onSignIn, onLearn }: Landing
             className="px-5 py-2 rounded-md border border-white/30 text-gray-200 text-sm font-sans hover:bg-white/10 transition-colors cursor-pointer"
           >
             Open Editor
+          </button>
+          <button
+            onClick={onDownload}
+            className="px-5 py-2 rounded-md border border-white/30 text-gray-200 text-sm font-sans hover:bg-white/10 transition-colors cursor-pointer"
+          >
+            Download
           </button>
         </div>
       </nav>
