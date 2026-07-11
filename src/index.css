@@ -485,6 +485,23 @@ code {
   color: var(--home-muted);
 }
 
+.desktop-home-account-btn {
+  padding: 4px 10px;
+  border: 1px solid var(--home-border-strong);
+  border-radius: 2px;
+  background: var(--home-card);
+  color: var(--home-text);
+  font-size: 13px;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.desktop-home-account-btn:hover {
+  background: var(--home-bg);
+  border-color: #0078d4;
+  color: #0078d4;
+}
+
 .desktop-home-user-name {
   padding: 4px 8px;
   border: 1px solid transparent;

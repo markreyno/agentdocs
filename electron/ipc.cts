@@ -1,4 +1,4 @@
-import { ipcMain, type IpcMainEvent } from 'electron'
+import { ipcMain, shell, type IpcMainEvent } from 'electron'
 import { deleteKey, getKey, listKeyStatus, setKey } from './keyStore.cjs'
 import { getStreamFn, listOllamaModels, PROVIDERS } from './providers/index.cjs'
 import type { ChatMessage, ProviderId } from './providers/types.cjs'
@@ -62,4 +62,17 @@ export function registerIpcHandlers() {
   })
 
   ipcMain.handle('ollama:models', () => listOllamaModels())
+
+  ipcMain.handle('shell:openExternal', async (_event, url: string) => {
+    let parsed: URL
+    try {
+      parsed = new URL(url)
+    } catch {
+      throw new Error('Invalid URL')
+    }
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      throw new Error('Only http(s) URLs are allowed')
+    }
+    await shell.openExternal(parsed.toString())
+  })
 }

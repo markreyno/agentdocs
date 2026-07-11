@@ -1,8 +1,9 @@
 interface SignInPageProps {
   onBack: () => void
+  onOpenDashboard?: () => void
 }
 
-export default function SignInPage({ onBack }: SignInPageProps) {
+export default function SignInPage({ onBack, onOpenDashboard }: SignInPageProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] via-[#1a1a2e] to-[#16213e] text-gray-100 flex flex-col font-serif">
       <nav className="flex items-center justify-between px-12 py-5 border-b border-white/8">
@@ -56,6 +57,16 @@ export default function SignInPage({ onBack }: SignInPageProps) {
               Sign in
             </button>
           </form>
+
+          {onOpenDashboard && (
+            <button
+              type="button"
+              onClick={onOpenDashboard}
+              className="mt-4 w-full px-6 py-3 rounded-lg border border-white/15 text-gray-300 text-sm font-sans hover:bg-white/5 hover:text-white transition-colors cursor-pointer bg-transparent"
+            >
+              Open dashboard (test)
+            </button>
+          )}
         </div>
       </main>
     </div>

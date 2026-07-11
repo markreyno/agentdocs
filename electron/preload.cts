@@ -58,4 +58,7 @@ contextBridge.exposeInMainWorld('agentdocs', {
   chat: {
     stream: streamChat,
   },
+  shell: {
+    openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
+  },
 })

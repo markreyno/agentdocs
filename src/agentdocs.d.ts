@@ -32,6 +32,9 @@ declare global {
           handlers: ChatStreamHandlers,
         ) => () => void
       }
+      shell: {
+        openExternal: (url: string) => Promise<void>
+      }
     }
   }
 }
