@@ -8,8 +8,14 @@ import AgentSidebar from './AgentSidebar'
 
 const PAGE_HEIGHT_PX = 1056 // 11in at 96dpi
 const PAGE_GAP_PX = 24
+const DEFAULT_TEXT_COLOR = '#000000'
 
-export default function TiptapEditor() {
+interface TiptapEditorProps {
+  onBack?: () => void
+  showBack?: boolean
+}
+
+export default function TiptapEditor({ onBack, showBack }: TiptapEditorProps) {
   const [pageCount, setPageCount] = useState(1)
   const [agentOpen, setAgentOpen] = useState(false)
 
@@ -20,6 +26,9 @@ export default function TiptapEditor() {
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
     ],
     content: '<p></p>',
+    onCreate: ({ editor }) => {
+      editor.chain().focus().setColor(DEFAULT_TEXT_COLOR).run()
+    },
   })
 
   useEffect(() => {
@@ -48,7 +57,12 @@ export default function TiptapEditor() {
   return (
     <div className="flex w-full">
       <div className="editor-workspace flex-1 min-w-0">
-        <Toolbar editor={editor} onToggleAgent={() => setAgentOpen((v) => !v)} />
+        <Toolbar
+          editor={editor}
+          onToggleAgent={() => setAgentOpen((v) => !v)}
+          onBack={onBack}
+          showBack={showBack}
+        />
         <div className="editor-scroll">
           <div
             className="editor-document"

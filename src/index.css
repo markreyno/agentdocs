@@ -159,7 +159,7 @@ code {
   outline: none;
   border: none;
   min-height: 9in;
-  color: var(--text-h);
+  color: #000000;
 }
 
 .editor-content .tiptap:focus,
@@ -168,4 +168,197 @@ code {
 .editor-content .ProseMirror:focus-visible {
   outline: none;
   box-shadow: none;
+}
+
+/* Outlook-style ribbon toolbar */
+.outlook-ribbon {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  width: 100%;
+  background: #faf9f8;
+  border-bottom: 1px solid #edebe9;
+  box-sizing: border-box;
+}
+
+.outlook-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  background: transparent;
+  color: #323130;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.outlook-btn:hover:not(.outlook-btn-disabled) {
+  background: #edebe9;
+}
+
+.outlook-btn-active {
+  background: #deecf9;
+  color: #0078d4;
+}
+
+.outlook-btn-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.outlook-back-btn {
+  padding: 0 8px;
+}
+
+.outlook-divider {
+  width: 1px;
+  height: 20px;
+  background: #edebe9;
+  margin: 0 4px;
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.outlook-combo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #8a8886;
+  border-radius: 2px;
+  background: #fff;
+  color: #323130;
+  font-size: 13px;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: border-color 0.1s;
+}
+
+.outlook-combo:hover {
+  border-color: #323130;
+}
+
+.outlook-combo-active {
+  border-color: #0078d4;
+}
+
+.outlook-dropdown {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  z-index: 30;
+  min-width: 8rem;
+  padding: 4px 0;
+  border: 1px solid #edebe9;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.outlook-dropdown-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border: none;
+  background: transparent;
+  color: #323130;
+  font-size: 13px;
+  font-family: var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.outlook-dropdown-item:hover {
+  background: #f3f2f1;
+}
+
+.outlook-dropdown-item-active {
+  background: #deecf9;
+  color: #0078d4;
+  font-weight: 500;
+}
+
+.outlook-find-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid #edebe9;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  white-space: nowrap;
+}
+
+.outlook-find-input {
+  width: 180px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #8a8886;
+  border-radius: 2px;
+  font-size: 13px;
+  font-family: var(--sans);
+  outline: none;
+}
+
+.outlook-find-input:focus {
+  border-color: #0078d4;
+}
+
+.outlook-find-next {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #8a8886;
+  border-radius: 2px;
+  background: #fff;
+  color: #323130;
+  font-size: 13px;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.outlook-find-next:hover {
+  background: #f3f2f1;
+}
+
+.outlook-find-status {
+  font-size: 12px;
+  color: #a4262c;
+}
+
+.outlook-agent-btn {
+  height: 28px;
+  padding: 0 12px;
+  border: 1px solid #0078d4;
+  border-radius: 2px;
+  background: #0078d4;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.outlook-agent-btn:hover {
+  background: #106ebe;
+  border-color: #106ebe;
 }
