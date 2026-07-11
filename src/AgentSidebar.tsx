@@ -1,7 +1,10 @@
 import type { Editor } from '@tiptap/react'
 import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
-import { streamChat, type ChatMessage } from './lib/chatClient'
+import { sendChatMessage } from './lib/agentChat'
+import type { ChatMessage } from './lib/chatClient'
+import { isDesktopApp } from './lib/isDesktop'
 import { findSkill, parseSlashCommand, resolveSkillTemplate, useSkills } from './lib/skills'
+import ProviderSettingsPanel from './ProviderSettingsPanel'
 
 interface DisplayMessage {
   role: 'user' | 'assistant'
@@ -31,6 +34,7 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
   const [loading, setLoading] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
   const [showManageSkills, setShowManageSkills] = useState(false)
+  const [showProviderSettings, setShowProviderSettings] = useState(false)
   const [newSkillName, setNewSkillName] = useState('')
   const [newSkillDescription, setNewSkillDescription] = useState('')
   const [newSkillTemplate, setNewSkillTemplate] = useState('')
@@ -73,7 +77,7 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
 
     const apiMessages: ChatMessage[] = nextMessages.map((m) => ({ role: m.role, content: m.content }))
 
-    await streamChat(apiMessages, {
+    await sendChatMessage(apiMessages, {
       onDelta: (delta) => {
         setMessages((prev) => {
           const updated = [...prev]
@@ -122,9 +126,19 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
 
   return (
     <div className="w-80 shrink-0 border-l border-gray-200 bg-white flex flex-col h-screen sticky top-0 font-sans">
+      {showProviderSettings && <ProviderSettingsPanel onClose={() => setShowProviderSettings(false)} />}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
         <span className="font-semibold text-sm text-gray-800">Agent</span>
         <div className="flex items-center gap-2">
+          {isDesktopApp() && (
+            <button
+              type="button"
+              onClick={() => setShowProviderSettings(true)}
+              className="text-xs text-gray-500 hover:text-gray-800 cursor-pointer"
+            >
+              Providers
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setShowManageSkills((v) => !v)}

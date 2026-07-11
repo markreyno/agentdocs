@@ -8,6 +8,7 @@ import {
   type DocumentRecord,
   type LocalUser,
 } from './lib/documents'
+import ProviderSettingsPanel from './ProviderSettingsPanel'
 
 interface DesktopHomePageProps {
   onNewDocument: (documentId: string) => void
@@ -17,6 +18,7 @@ interface DesktopHomePageProps {
 export default function DesktopHomePage({ onNewDocument, onOpenDocument }: DesktopHomePageProps) {
   const [user, setUser] = useState<LocalUser>(() => getOrCreateUser())
   const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(user.id))
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     setDocuments(listRecentDocuments(user.id))
@@ -38,6 +40,9 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
       <header className="desktop-home-header">
         <span className="desktop-home-logo">agentdocs</span>
         <div className="desktop-home-user">
+          <button type="button" onClick={() => setShowSettings(true)} className="desktop-home-user-label cursor-pointer">
+            Model providers
+          </button>
           <span className="desktop-home-user-label">Signed in as</span>
           <input
             type="text"
@@ -48,6 +53,8 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
           />
         </div>
       </header>
+
+      {showSettings && <ProviderSettingsPanel onClose={() => setShowSettings(false)} />}
 
       <main className="desktop-home-main">
         <section className="desktop-home-hero">
