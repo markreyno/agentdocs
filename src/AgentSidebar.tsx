@@ -125,16 +125,16 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
   }
 
   return (
-    <div className="w-80 shrink-0 border-l border-gray-200 bg-white flex flex-col h-screen sticky top-0 font-sans">
+    <div className="w-80 shrink-0 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1f2028] flex flex-col h-screen sticky top-0 font-sans text-gray-900 dark:text-gray-100">
       {showProviderSettings && <ProviderSettingsPanel onClose={() => setShowProviderSettings(false)} />}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
-        <span className="font-semibold text-sm text-gray-800">Agent</span>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+        <span className="font-semibold text-sm text-gray-800 dark:text-gray-100">Agent</span>
         <div className="flex items-center gap-2">
           {isDesktopApp() && (
             <button
               type="button"
               onClick={() => setShowProviderSettings(true)}
-              className="text-xs text-gray-500 hover:text-gray-800 cursor-pointer"
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
             >
               Providers
             </button>
@@ -142,7 +142,7 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
           <button
             type="button"
             onClick={() => setShowManageSkills((v) => !v)}
-            className="text-xs text-gray-500 hover:text-gray-800 cursor-pointer"
+            className="text-xs text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 cursor-pointer"
           >
             Skills
           </button>
@@ -150,7 +150,7 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
             type="button"
             onClick={onClose}
             aria-label="Close agent panel"
-            className="text-gray-400 hover:text-gray-700 cursor-pointer"
+            className="text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 cursor-pointer"
           >
             ✕
           </button>
@@ -158,13 +158,13 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
       </div>
 
       {showManageSkills && (
-        <div className="border-b border-gray-200 p-3 text-xs">
-          <p className="font-medium text-gray-700 mb-2">Available commands</p>
+        <div className="border-b border-gray-200 dark:border-gray-700 p-3 text-xs">
+          <p className="font-medium text-gray-700 dark:text-gray-200 mb-2">Available commands</p>
           <ul className="mb-3 space-y-1">
             {skills.map((s) => (
-              <li key={s.id} className="flex items-center justify-between text-gray-600">
+              <li key={s.id} className="flex items-center justify-between text-gray-600 dark:text-gray-400">
                 <span>
-                  <span className="font-mono text-indigo-600">/{s.name}</span> — {s.description}
+                  <span className="font-mono text-indigo-600 dark:text-indigo-400">/{s.name}</span> — {s.description}
                 </span>
                 {customSkills.some((c) => c.id === s.id) && (
                   <button
@@ -183,20 +183,20 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
               value={newSkillName}
               onChange={(e) => setNewSkillName(e.target.value)}
               placeholder="name (e.g. shorten)"
-              className="w-full border border-gray-200 rounded px-2 py-1"
+              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded px-2 py-1"
             />
             <input
               value={newSkillDescription}
               onChange={(e) => setNewSkillDescription(e.target.value)}
               placeholder="description"
-              className="w-full border border-gray-200 rounded px-2 py-1"
+              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded px-2 py-1"
             />
             <textarea
               value={newSkillTemplate}
               onChange={(e) => setNewSkillTemplate(e.target.value)}
               placeholder="template, use {{selection}} {{document}} {{args}}"
               rows={2}
-              className="w-full border border-gray-200 rounded px-2 py-1"
+              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded px-2 py-1"
             />
             <button
               type="submit"
@@ -218,7 +218,9 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
           <div key={i} className={m.role === 'user' ? 'text-right' : 'text-left'}>
             <div
               className={`inline-block max-w-[90%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap text-left ${
-                m.role === 'user' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-800'
+                m.role === 'user'
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-100'
               }`}
             >
               {m.display ?? (m.content || (loading && i === messages.length - 1 ? '…' : ''))}
@@ -246,17 +248,17 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
         {errorText && <p className="text-xs text-red-600">{errorText}</p>}
       </div>
 
-      <form onSubmit={handleSend} className="border-t border-gray-200 p-3 relative">
+      <form onSubmit={handleSend} className="border-t border-gray-200 dark:border-gray-700 p-3 relative">
         {suggestions.length > 0 && (
-          <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-gray-200 bg-white shadow-md py-1 max-h-40 overflow-y-auto">
+          <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-[#23242c] shadow-md py-1 max-h-40 overflow-y-auto">
             {suggestions.map((s) => (
               <button
                 key={s.id}
                 type="button"
                 onClick={() => applySuggestion(s.name)}
-                className="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 cursor-pointer"
+                className="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"
               >
-                <span className="font-mono text-indigo-600">/{s.name}</span>
+                <span className="font-mono text-indigo-600 dark:text-indigo-400">/{s.name}</span>
                 <span className="text-gray-500"> — {s.description}</span>
               </button>
             ))}
@@ -269,7 +271,7 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
           onKeyDown={handleKeyDown}
           rows={2}
           placeholder="Message the agent, or type / for commands"
-          className="w-full resize-none border border-gray-200 rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          className="w-full resize-none border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
         />
         <button
           type="submit"

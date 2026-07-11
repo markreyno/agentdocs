@@ -10,7 +10,7 @@ export default function DesktopApp() {
 
   if (page === 'editor' && activeDocumentId) {
     return (
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-[var(--editor-canvas)] flex flex-col">
         <TiptapEditor documentId={activeDocumentId} onBack={() => setPage('home')} showBack />
       </div>
     )

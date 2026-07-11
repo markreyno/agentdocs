@@ -1,6 +1,9 @@
 @import "tailwindcss";
 
-:root {
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+:root,
+[data-theme="light"] {
   --text: #6b6375;
   --text-h: #08060d;
   --bg: #fff;
@@ -13,13 +16,36 @@
   --shadow:
     rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
 
+  --editor-canvas: #f3f4f6;
+  --editor-page: #fff;
+  --editor-text: #000000;
+  --ribbon-bg: #faf9f8;
+  --ribbon-border: #edebe9;
+  --ribbon-text: #323130;
+  --ribbon-hover: #edebe9;
+  --ribbon-active-bg: #deecf9;
+  --ribbon-active-text: #0078d4;
+  --ribbon-control-border: #8a8886;
+  --ribbon-control-bg: #fff;
+  --ribbon-dropdown-hover: #f3f2f1;
+  --ribbon-muted: #a19f9d;
+  --ribbon-danger: #a4262c;
+  --home-bg: #f3f2f1;
+  --home-surface: #faf9f8;
+  --home-card: #fff;
+  --home-text: #323130;
+  --home-text-strong: #201f1e;
+  --home-muted: #605e5c;
+  --home-border: #edebe9;
+  --home-border-strong: #c8c6c4;
+
   --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
   --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, Consolas, monospace;
 
   font: 18px/145% var(--sans);
   letter-spacing: 0.18px;
-  color-scheme: light dark;
+  color-scheme: light;
   color: var(--text);
   background: var(--bg);
   font-synthesis: none;
@@ -32,24 +58,49 @@
   }
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --text: #9ca3af;
-    --text-h: #f3f4f6;
-    --bg: #16171d;
-    --border: #2e303a;
-    --code-bg: #1f2028;
-    --accent: #c084fc;
-    --accent-bg: rgba(192, 132, 252, 0.15);
-    --accent-border: rgba(192, 132, 252, 0.5);
-    --social-bg: rgba(47, 48, 58, 0.5);
-    --shadow:
-      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
-  }
+[data-theme="dark"] {
+  --text: #9ca3af;
+  --text-h: #f3f4f6;
+  --bg: #16171d;
+  --border: #2e303a;
+  --code-bg: #1f2028;
+  --accent: #c084fc;
+  --accent-bg: rgba(192, 132, 252, 0.15);
+  --accent-border: rgba(192, 132, 252, 0.5);
+  --social-bg: rgba(47, 48, 58, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
 
-  #social .button-icon {
-    filter: invert(1) brightness(2);
-  }
+  --editor-canvas: #1a1b22;
+  --editor-page: #23242c;
+  --editor-text: #f3f4f6;
+  --ribbon-bg: #1f2028;
+  --ribbon-border: #2e303a;
+  --ribbon-text: #e5e7eb;
+  --ribbon-hover: #2a2b34;
+  --ribbon-active-bg: #1e3a5f;
+  --ribbon-active-text: #60a5fa;
+  --ribbon-control-border: #4b5563;
+  --ribbon-control-bg: #23242c;
+  --ribbon-dropdown-hover: #2a2b34;
+  --ribbon-muted: #9ca3af;
+  --ribbon-danger: #f87171;
+  --home-bg: #16171d;
+  --home-surface: #1f2028;
+  --home-card: #23242c;
+  --home-text: #e5e7eb;
+  --home-text-strong: #f3f4f6;
+  --home-muted: #9ca3af;
+  --home-border: #2e303a;
+  --home-border-strong: #4b5563;
+
+  color-scheme: dark;
+  color: var(--text);
+  background: var(--bg);
+}
+
+[data-theme="dark"] #social .button-icon {
+  filter: invert(1) brightness(2);
 }
 
 #root {
@@ -119,7 +170,7 @@ code {
   flex: 1;
   overflow-y: auto;
   padding: 1.5rem 1rem 2rem;
-  background: #f3f4f6;
+  background: var(--editor-canvas);
 }
 
 .editor-document {
@@ -140,10 +191,16 @@ code {
   left: 0;
   width: 100%;
   height: 11in;
-  background: #fff;
+  background: var(--editor-page);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.08),
     0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .editor-page {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .editor-content {
@@ -159,7 +216,7 @@ code {
   outline: none;
   border: none;
   min-height: 9in;
-  color: #000000;
+  color: var(--editor-text);
 }
 
 .editor-content .tiptap:focus,
@@ -181,8 +238,8 @@ code {
   gap: 2px;
   padding: 4px 12px;
   width: 100%;
-  background: #faf9f8;
-  border-bottom: 1px solid #edebe9;
+  background: var(--ribbon-bg);
+  border-bottom: 1px solid var(--ribbon-border);
   box-sizing: border-box;
 }
 
@@ -197,19 +254,19 @@ code {
   border: 1px solid transparent;
   border-radius: 2px;
   background: transparent;
-  color: #323130;
+  color: var(--ribbon-text);
   font-family: var(--sans);
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s;
 }
 
 .outlook-btn:hover:not(.outlook-btn-disabled) {
-  background: #edebe9;
+  background: var(--ribbon-hover);
 }
 
 .outlook-btn-active {
-  background: #deecf9;
-  color: #0078d4;
+  background: var(--ribbon-active-bg);
+  color: var(--ribbon-active-text);
 }
 
 .outlook-btn-disabled {
@@ -224,7 +281,7 @@ code {
 .outlook-divider {
   width: 1px;
   height: 20px;
-  background: #edebe9;
+  background: var(--ribbon-border);
   margin: 0 4px;
   align-self: center;
   flex-shrink: 0;
@@ -236,10 +293,10 @@ code {
   gap: 6px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid #8a8886;
+  border: 1px solid var(--ribbon-control-border);
   border-radius: 2px;
-  background: #fff;
-  color: #323130;
+  background: var(--ribbon-control-bg);
+  color: var(--ribbon-text);
   font-size: 13px;
   font-family: var(--sans);
   cursor: pointer;
@@ -247,7 +304,7 @@ code {
 }
 
 .outlook-combo:hover {
-  border-color: #323130;
+  border-color: var(--ribbon-text);
 }
 
 .outlook-combo-active {
@@ -261,9 +318,9 @@ code {
   z-index: 30;
   min-width: 8rem;
   padding: 4px 0;
-  border: 1px solid #edebe9;
+  border: 1px solid var(--ribbon-border);
   border-radius: 2px;
-  background: #fff;
+  background: var(--ribbon-control-bg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
@@ -275,7 +332,7 @@ code {
   padding: 6px 12px;
   border: none;
   background: transparent;
-  color: #323130;
+  color: var(--ribbon-text);
   font-size: 13px;
   font-family: var(--sans);
   text-align: left;
@@ -283,12 +340,12 @@ code {
 }
 
 .outlook-dropdown-item:hover {
-  background: #f3f2f1;
+  background: var(--ribbon-dropdown-hover);
 }
 
 .outlook-dropdown-item-active {
-  background: #deecf9;
-  color: #0078d4;
+  background: var(--ribbon-active-bg);
+  color: var(--ribbon-active-text);
   font-weight: 500;
 }
 
@@ -301,9 +358,9 @@ code {
   align-items: center;
   gap: 6px;
   padding: 8px;
-  border: 1px solid #edebe9;
+  border: 1px solid var(--ribbon-border);
   border-radius: 2px;
-  background: #fff;
+  background: var(--ribbon-control-bg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
   white-space: nowrap;
 }
@@ -312,8 +369,10 @@ code {
   width: 180px;
   height: 28px;
   padding: 0 8px;
-  border: 1px solid #8a8886;
+  border: 1px solid var(--ribbon-control-border);
   border-radius: 2px;
+  background: var(--ribbon-control-bg);
+  color: var(--ribbon-text);
   font-size: 13px;
   font-family: var(--sans);
   outline: none;
@@ -326,22 +385,22 @@ code {
 .outlook-find-next {
   height: 28px;
   padding: 0 12px;
-  border: 1px solid #8a8886;
+  border: 1px solid var(--ribbon-control-border);
   border-radius: 2px;
-  background: #fff;
-  color: #323130;
+  background: var(--ribbon-control-bg);
+  color: var(--ribbon-text);
   font-size: 13px;
   font-family: var(--sans);
   cursor: pointer;
 }
 
 .outlook-find-next:hover {
-  background: #f3f2f1;
+  background: var(--ribbon-dropdown-hover);
 }
 
 .outlook-find-status {
   font-size: 12px;
-  color: #a4262c;
+  color: var(--ribbon-danger);
 }
 
 .outlook-agent-btn {
@@ -370,24 +429,24 @@ code {
   border: 1px solid transparent;
   border-radius: 2px;
   background: transparent;
-  color: #323130;
+  color: var(--ribbon-text);
   font-size: 13px;
   font-family: var(--sans);
   outline: none;
 }
 
 .doc-title-input:hover {
-  border-color: #c8c6c4;
-  background: #fff;
+  border-color: var(--home-border-strong);
+  background: var(--ribbon-control-bg);
 }
 
 .doc-title-input:focus {
   border-color: #0078d4;
-  background: #fff;
+  background: var(--ribbon-control-bg);
 }
 
 .doc-title-input::placeholder {
-  color: #a19f9d;
+  color: var(--ribbon-muted);
 }
 
 /* Desktop home page */
@@ -395,8 +454,8 @@ code {
   min-height: 100svh;
   display: flex;
   flex-direction: column;
-  background: #f3f2f1;
-  color: #323130;
+  background: var(--home-bg);
+  color: var(--home-text);
   font-family: var(--sans);
 }
 
@@ -405,14 +464,14 @@ code {
   align-items: center;
   justify-content: space-between;
   padding: 12px 24px;
-  background: #faf9f8;
-  border-bottom: 1px solid #edebe9;
+  background: var(--home-surface);
+  border-bottom: 1px solid var(--home-border);
 }
 
 .desktop-home-logo {
   font-size: 18px;
   font-weight: 600;
-  color: #323130;
+  color: var(--home-text);
 }
 
 .desktop-home-user {
@@ -423,7 +482,7 @@ code {
 }
 
 .desktop-home-user-label {
-  color: #605e5c;
+  color: var(--home-muted);
 }
 
 .desktop-home-user-name {
@@ -431,20 +490,20 @@ code {
   border: 1px solid transparent;
   border-radius: 2px;
   background: transparent;
-  color: #323130;
+  color: var(--home-text);
   font-size: 13px;
   font-family: var(--sans);
   outline: none;
 }
 
 .desktop-home-user-name:hover {
-  border-color: #edebe9;
-  background: #fff;
+  border-color: var(--home-border);
+  background: var(--home-card);
 }
 
 .desktop-home-user-name:focus {
   border-color: #0078d4;
-  background: #fff;
+  background: var(--home-card);
 }
 
 .desktop-home-main {
@@ -464,13 +523,13 @@ code {
   margin: 0 0 8px;
   font-size: 28px;
   font-weight: 600;
-  color: #201f1e;
+  color: var(--home-text-strong);
 }
 
 .desktop-home-subtitle {
   margin: 0 0 24px;
   font-size: 15px;
-  color: #605e5c;
+  color: var(--home-muted);
 }
 
 .desktop-home-new-btn {
@@ -508,16 +567,16 @@ code {
   margin: 0 0 16px;
   font-size: 16px;
   font-weight: 600;
-  color: #323130;
+  color: var(--home-text);
 }
 
 .desktop-home-empty {
   padding: 48px 24px;
-  border: 1px dashed #c8c6c4;
+  border: 1px dashed var(--home-border-strong);
   border-radius: 4px;
-  background: #faf9f8;
+  background: var(--home-surface);
   text-align: center;
-  color: #605e5c;
+  color: var(--home-muted);
   font-size: 14px;
 }
 
@@ -527,17 +586,17 @@ code {
 
 .desktop-home-empty-btn {
   padding: 8px 16px;
-  border: 1px solid #8a8886;
+  border: 1px solid var(--ribbon-control-border);
   border-radius: 2px;
-  background: #fff;
-  color: #323130;
+  background: var(--home-card);
+  color: var(--home-text);
   font-size: 13px;
   font-family: var(--sans);
   cursor: pointer;
 }
 
 .desktop-home-empty-btn:hover {
-  background: #f3f2f1;
+  background: var(--home-bg);
 }
 
 .desktop-home-doc-list {
@@ -555,9 +614,9 @@ code {
   gap: 12px;
   width: 100%;
   padding: 16px;
-  border: 1px solid #edebe9;
+  border: 1px solid var(--home-border);
   border-radius: 4px;
-  background: #fff;
+  background: var(--home-card);
   text-align: left;
   cursor: pointer;
   transition: border-color 0.1s, box-shadow 0.1s;
@@ -576,8 +635,8 @@ code {
   width: 36px;
   height: 36px;
   border-radius: 4px;
-  background: #deecf9;
-  color: #0078d4;
+  background: var(--ribbon-active-bg);
+  color: var(--ribbon-active-text);
   flex-shrink: 0;
 }
 
@@ -591,7 +650,7 @@ code {
 .desktop-home-doc-title {
   font-size: 14px;
   font-weight: 500;
-  color: #323130;
+  color: var(--home-text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -599,5 +658,5 @@ code {
 
 .desktop-home-doc-meta {
   font-size: 12px;
-  color: #605e5c;
+  color: var(--home-muted);
 }

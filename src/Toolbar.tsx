@@ -1,5 +1,7 @@
 import { Editor } from '@tiptap/react'
 import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode, type SVGProps } from 'react'
+import { isDesktopApp } from './lib/isDesktop'
+import { useTheme } from './lib/theme'
 
 const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
 
@@ -102,6 +104,22 @@ function FindIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
       <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.156a5 5 0 1 1 0-10 5 5 0 0 1 0 10z" />
+    </svg>
+  )
+}
+
+function SunIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M8 4.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7zM8 6a2 2 0 1 1 0 4 2 2 0 0 1 0-4zm0-4.5a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 1.5zm0 11a.75.75 0 0 1 .75.75v1a.75.75 0 0 1-1.5 0v-1A.75.75 0 0 1 8 12.5zM2.25 8A.75.75 0 0 1 3 7.25h1a.75.75 0 0 1 0 1.5H3A.75.75 0 0 1 2.25 8zm9 0a.75.75 0 0 1 .75-.75h1a.75.75 0 0 1 0 1.5h-1A.75.75 0 0 1 11.25 8zM3.72 3.72a.75.75 0 0 1 1.06 0l.7.7a.75.75 0 1 1-1.06 1.06l-.7-.7a.75.75 0 0 1 0-1.06zm6.8 6.8a.75.75 0 0 1 1.06 0l.7.7a.75.75 0 1 1-1.06 1.06l-.7-.7a.75.75 0 0 1 0-1.06zM12.28 3.72a.75.75 0 0 1 0 1.06l-.7.7a.75.75 0 1 1-1.06-1.06l.7-.7a.75.75 0 0 1 1.06 0zM5.48 10.52a.75.75 0 0 1 0 1.06l-.7.7a.75.75 0 1 1-1.06-1.06l.7-.7a.75.75 0 0 1 1.06 0z" />
+    </svg>
+  )
+}
+
+function MoonIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M6.5 1.5a.75.75 0 0 1 .66.98A5.5 5.5 0 1 0 12.52 8.84a.75.75 0 0 1 1.4.54A7 7 0 1 1 5.98 1.16a.75.75 0 0 1 .52.34z" />
     </svg>
   )
 }
@@ -628,6 +646,9 @@ export default function Toolbar({
   onDocumentTitleChange,
   onDocumentTitleBlur,
 }: ToolbarProps) {
+  const { theme, toggleTheme } = useTheme()
+  const showThemeToggle = isDesktopApp()
+
   if (!editor) return null
 
   return (
@@ -687,6 +708,15 @@ export default function Toolbar({
       )}
 
       <div className="flex-1" />
+
+      {showThemeToggle && (
+        <ToolbarButton
+          label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+          onClick={toggleTheme}
+        >
+          <Icon>{theme === 'dark' ? <SunIcon /> : <MoonIcon />}</Icon>
+        </ToolbarButton>
+      )}
 
       <button type="button" onClick={onToggleAgent} className="outlook-agent-btn">
         +agent
