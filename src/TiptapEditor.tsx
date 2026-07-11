@@ -2,22 +2,39 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyleKit } from '@tiptap/extension-text-style'
 import TextAlign from '@tiptap/extension-text-align'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import Toolbar from './Toolbar'
 import AgentSidebar from './AgentSidebar'
+import {
+  extractTitleFromEditor,
+  getDocument,
+  saveDocument,
+} from './lib/documents'
 
 const PAGE_HEIGHT_PX = 1056 // 11in at 96dpi
 const PAGE_GAP_PX = 24
 const DEFAULT_TEXT_COLOR = '#000000'
+const DEFAULT_TITLE = 'Untitled document'
 
 interface TiptapEditorProps {
+  documentId?: string
   onBack?: () => void
   showBack?: boolean
 }
 
-export default function TiptapEditor({ onBack, showBack }: TiptapEditorProps) {
+export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEditorProps) {
   const [pageCount, setPageCount] = useState(1)
   const [agentOpen, setAgentOpen] = useState(false)
+  const [title, setTitle] = useState(DEFAULT_TITLE)
+  const titleTouchedRef = useRef(false)
+  const titleRef = useRef(title)
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  titleRef.current = title
+
+  const initialContent = documentId
+    ? getDocument(documentId)?.content ?? '<p></p>'
+    : '<p></p>'
 
   const editor = useEditor({
     extensions: [
@@ -25,11 +42,23 @@ export default function TiptapEditor({ onBack, showBack }: TiptapEditorProps) {
       TextStyleKit,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
     ],
-    content: '<p></p>',
+    content: initialContent,
     onCreate: ({ editor }) => {
       editor.chain().focus().setColor(DEFAULT_TEXT_COLOR).run()
     },
-  })
+  }, [documentId])
+
+  useEffect(() => {
+    if (!documentId) {
+      setTitle(DEFAULT_TITLE)
+      titleTouchedRef.current = false
+      return
+    }
+
+    const doc = getDocument(documentId)
+    setTitle(doc?.title ?? DEFAULT_TITLE)
+    titleTouchedRef.current = false
+  }, [documentId])
 
   useEffect(() => {
     if (!editor) return
@@ -51,6 +80,63 @@ export default function TiptapEditor({ onBack, showBack }: TiptapEditorProps) {
     }
   }, [editor])
 
+  const persistDocument = useCallback(() => {
+    if (!editor || !documentId) return
+
+    let nextTitle = titleRef.current.trim() || DEFAULT_TITLE
+
+    if (!titleTouchedRef.current) {
+      const extracted = extractTitleFromEditor(editor)
+      if (extracted !== DEFAULT_TITLE) {
+        nextTitle = extracted
+        setTitle(extracted)
+        titleRef.current = extracted
+      }
+    }
+
+    saveDocument(documentId, {
+      content: editor.getHTML(),
+      title: nextTitle,
+    })
+  }, [editor, documentId])
+
+  useEffect(() => {
+    if (!editor || !documentId) return
+
+    const handleUpdate = () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = setTimeout(persistDocument, 500)
+    }
+
+    editor.on('update', handleUpdate)
+
+    return () => {
+      editor.off('update', handleUpdate)
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      persistDocument()
+    }
+  }, [editor, documentId, persistDocument])
+
+  const handleTitleChange = (value: string) => {
+    titleTouchedRef.current = true
+    setTitle(value)
+    titleRef.current = value
+  }
+
+  const handleTitleBlur = () => {
+    const trimmed = titleRef.current.trim() || DEFAULT_TITLE
+    setTitle(trimmed)
+    titleRef.current = trimmed
+    titleTouchedRef.current = true
+
+    if (documentId && editor) {
+      saveDocument(documentId, {
+        content: editor.getHTML(),
+        title: trimmed,
+      })
+    }
+  }
+
   const documentHeight =
     pageCount * PAGE_HEIGHT_PX + (pageCount - 1) * PAGE_GAP_PX
 
@@ -62,6 +148,9 @@ export default function TiptapEditor({ onBack, showBack }: TiptapEditorProps) {
           onToggleAgent={() => setAgentOpen((v) => !v)}
           onBack={onBack}
           showBack={showBack}
+          documentTitle={documentId ? title : undefined}
+          onDocumentTitleChange={documentId ? handleTitleChange : undefined}
+          onDocumentTitleBlur={documentId ? handleTitleBlur : undefined}
         />
         <div className="editor-scroll">
           <div

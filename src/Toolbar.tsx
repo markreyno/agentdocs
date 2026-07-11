@@ -614,9 +614,20 @@ interface ToolbarProps {
   onToggleAgent: () => void
   onBack?: () => void
   showBack?: boolean
+  documentTitle?: string
+  onDocumentTitleChange?: (title: string) => void
+  onDocumentTitleBlur?: () => void
 }
 
-export default function Toolbar({ editor, onToggleAgent, onBack, showBack = true }: ToolbarProps) {
+export default function Toolbar({
+  editor,
+  onToggleAgent,
+  onBack,
+  showBack = true,
+  documentTitle,
+  onDocumentTitleChange,
+  onDocumentTitleBlur,
+}: ToolbarProps) {
   if (!editor) return null
 
   return (
@@ -662,6 +673,18 @@ export default function Toolbar({ editor, onToggleAgent, onBack, showBack = true
       <Divider />
 
       <FindPopover editor={editor} />
+
+      {documentTitle !== undefined && onDocumentTitleChange && (
+        <input
+          type="text"
+          value={documentTitle}
+          onChange={(e) => onDocumentTitleChange(e.target.value)}
+          onBlur={onDocumentTitleBlur}
+          aria-label="Document title"
+          className="doc-title-input"
+          placeholder="Untitled document"
+        />
+      )}
 
       <div className="flex-1" />
 
