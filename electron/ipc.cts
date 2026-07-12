@@ -1,5 +1,6 @@
 import { ipcMain, shell, type IpcMainEvent } from 'electron'
 import { deleteKey, getKey, listKeyStatus, setKey } from './keyStore.cjs'
+import { ensureOllamaRunning } from './ollamaService.cjs'
 import { getStreamFn, listOllamaModels, PROVIDERS } from './providers/index.cjs'
 import type { ChatMessage, ProviderId } from './providers/types.cjs'
 
@@ -24,6 +25,17 @@ export function registerIpcHandlers() {
     activeRequests.set(requestId, controller)
 
     try {
+      if (provider === 'ollama') {
+        const { available } = await ensureOllamaRunning()
+        if (!available) {
+          sendChatEvent(event, requestId, {
+            type: 'error',
+            message: 'Could not reach Ollama. Is it installed and available locally?',
+          })
+          return
+        }
+      }
+
       const apiKey = getKey(provider)
       const stream = getStreamFn(provider)
       await stream({
@@ -60,6 +72,8 @@ export function registerIpcHandlers() {
   ipcMain.handle('keys:delete', (_event, provider: ProviderId) => {
     deleteKey(provider)
   })
+
+  ipcMain.handle('ollama:ensure', () => ensureOllamaRunning())
 
   ipcMain.handle('ollama:models', () => listOllamaModels())
 

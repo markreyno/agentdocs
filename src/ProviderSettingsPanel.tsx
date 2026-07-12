@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ProviderDescriptor, ProviderId } from './lib/providers'
+import { ensureOllamaWhenSelected } from './lib/ollama'
 import { getActiveProvider, getModelFor, setActiveProvider, setModelFor } from './lib/providerSettings'
 
 interface ProviderSettingsPanelProps {
@@ -22,16 +23,26 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
   useEffect(() => {
     window.agentdocs?.providers.list().then(setProviders)
     window.agentdocs?.keys.status().then(setKeyStatus)
-    window.agentdocs?.ollama.models().then(setOllamaModels)
+    if (getActiveProvider() === 'ollama') {
+      void ensureOllamaWhenSelected('ollama').then(() => {
+        window.agentdocs?.ollama.models().then(setOllamaModels)
+      })
+    }
   }, [])
 
-  const refreshOllamaModels = () => {
+  const refreshOllamaModels = async (provider = activeProvider) => {
+    if (provider === 'ollama') {
+      await ensureOllamaWhenSelected('ollama')
+    }
     window.agentdocs?.ollama.models().then(setOllamaModels)
   }
 
-  const handleActivate = (provider: ProviderId) => {
+  const handleActivate = async (provider: ProviderId) => {
     setActive(provider)
     setActiveProvider(provider)
+    if (provider === 'ollama') {
+      await refreshOllamaModels('ollama')
+    }
   }
 
   const handleModelChange = (provider: ProviderId, model: string) => {

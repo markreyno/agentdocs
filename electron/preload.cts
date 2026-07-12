@@ -53,6 +53,8 @@ contextBridge.exposeInMainWorld('agentdocs', {
     delete: (provider: ProviderId): Promise<void> => ipcRenderer.invoke('keys:delete', provider),
   },
   ollama: {
+    ensureRunning: (): Promise<{ started: boolean; available: boolean }> =>
+      ipcRenderer.invoke('ollama:ensure'),
     models: (): Promise<string[]> => ipcRenderer.invoke('ollama:models'),
   },
   chat: {

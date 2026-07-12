@@ -1,6 +1,5 @@
+import { OLLAMA_BASE_URL } from '../ollamaService.cjs'
 import type { ProviderStreamFn } from './types.cjs'
-
-const OLLAMA_BASE_URL = 'http://localhost:11434'
 
 export const streamOllama: ProviderStreamFn = async ({ model, messages, signal, onDelta }) => {
   let response: Response

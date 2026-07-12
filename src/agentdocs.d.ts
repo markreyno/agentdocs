@@ -22,6 +22,7 @@ declare global {
         delete: (provider: ProviderId) => Promise<void>
       }
       ollama: {
+        ensureRunning: () => Promise<{ started: boolean; available: boolean }>
         models: () => Promise<string[]>
       }
       chat: {

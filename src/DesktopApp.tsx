@@ -1,13 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import DesktopHomePage from './DesktopHomePage'
 import TiptapEditor from './TiptapEditor'
 import UserDashboard from './UserDashboard'
+import { ensureOllamaWhenSelected } from './lib/ollama'
+import { getActiveProvider } from './lib/providerSettings'
 
 type Page = 'home' | 'editor' | 'account'
 
 export default function DesktopApp() {
   const [page, setPage] = useState<Page>('home')
   const [activeDocumentId, setActiveDocumentId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (getActiveProvider() === 'ollama') {
+      void ensureOllamaWhenSelected('ollama')
+    }
+  }, [])
 
   if (page === 'account') {
     return (
