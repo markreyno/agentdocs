@@ -8,7 +8,6 @@ import AgentSidebar from './AgentSidebar'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 import { isDesktopApp } from './lib/isDesktop'
 import {
-  extractTitleFromEditor,
   getDocument,
   saveDocument,
 } from './lib/documents'
@@ -25,12 +24,16 @@ interface TiptapEditorProps {
   showBack?: boolean
 }
 
+function getInitialTitle(documentId?: string) {
+  if (!documentId) return DEFAULT_TITLE
+  return getDocument(documentId)?.title ?? DEFAULT_TITLE
+}
+
 export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEditorProps) {
   const [pageCount, setPageCount] = useState(1)
   const [agentOpen, setAgentOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [title, setTitle] = useState(DEFAULT_TITLE)
-  const titleTouchedRef = useRef(false)
+  const [title, setTitle] = useState(() => getInitialTitle(documentId))
   const titleRef = useRef(title)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -54,15 +57,7 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
   }, [documentId])
 
   useEffect(() => {
-    if (!documentId) {
-      setTitle(DEFAULT_TITLE)
-      titleTouchedRef.current = false
-      return
-    }
-
-    const doc = getDocument(documentId)
-    setTitle(doc?.title ?? DEFAULT_TITLE)
-    titleTouchedRef.current = false
+    setTitle(getInitialTitle(documentId))
   }, [documentId])
 
   useEffect(() => {
@@ -85,32 +80,26 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     }
   }, [editor])
 
-  const persistDocument = useCallback(() => {
+  // Content autosave must not write the title — remount/effect cleanup used to
+  // persist the default "Untitled document" before the real title loaded.
+  const persistContent = useCallback(() => {
     if (!editor || !documentId) return
-
-    let nextTitle = titleRef.current.trim() || DEFAULT_TITLE
-
-    if (!titleTouchedRef.current) {
-      const extracted = extractTitleFromEditor(editor)
-      if (extracted !== DEFAULT_TITLE) {
-        nextTitle = extracted
-        setTitle(extracted)
-        titleRef.current = extracted
-      }
-    }
-
-    saveDocument(documentId, {
-      content: editor.getHTML(),
-      title: nextTitle,
-    })
+    saveDocument(documentId, { content: editor.getHTML() })
   }, [editor, documentId])
+
+  const persistTitleIfSet = useCallback(() => {
+    if (!documentId) return
+    const trimmed = titleRef.current.trim()
+    if (!trimmed) return
+    saveDocument(documentId, { title: trimmed })
+  }, [documentId])
 
   useEffect(() => {
     if (!editor || !documentId) return
 
     const handleUpdate = () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      saveTimerRef.current = setTimeout(persistDocument, 500)
+      saveTimerRef.current = setTimeout(persistContent, 500)
     }
 
     editor.on('update', handleUpdate)
@@ -118,12 +107,12 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     return () => {
       editor.off('update', handleUpdate)
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      persistDocument()
+      persistContent()
+      persistTitleIfSet()
     }
-  }, [editor, documentId, persistDocument])
+  }, [editor, documentId, persistContent, persistTitleIfSet])
 
   const handleTitleChange = (value: string) => {
-    titleTouchedRef.current = true
     setTitle(value)
     titleRef.current = value
   }
@@ -132,13 +121,9 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     const trimmed = titleRef.current.trim() || DEFAULT_TITLE
     setTitle(trimmed)
     titleRef.current = trimmed
-    titleTouchedRef.current = true
 
-    if (documentId && editor) {
-      saveDocument(documentId, {
-        content: editor.getHTML(),
-        title: trimmed,
-      })
+    if (documentId) {
+      saveDocument(documentId, { title: trimmed })
     }
   }
 

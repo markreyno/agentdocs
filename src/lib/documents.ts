@@ -1,5 +1,3 @@
-import type { Editor } from '@tiptap/react'
-
 export interface LocalUser {
   id: string
   displayName: string
@@ -85,7 +83,7 @@ export function createDocument(userId: string): DocumentRecord {
 
 export function saveDocument(
   id: string,
-  updates: Pick<DocumentRecord, 'title' | 'content'>,
+  updates: Partial<Pick<DocumentRecord, 'title' | 'content'>>,
 ): DocumentRecord | undefined {
   const documents = readDocuments()
   const index = documents.findIndex((doc) => doc.id === id)
@@ -99,13 +97,6 @@ export function saveDocument(
   documents[index] = updated
   writeDocuments(documents)
   return updated
-}
-
-export function extractTitleFromEditor(editor: Editor): string {
-  const text = editor.getText().trim()
-  if (!text) return 'Untitled document'
-  const firstLine = text.split('\n')[0]?.trim() ?? ''
-  return firstLine.slice(0, 80) || 'Untitled document'
 }
 
 export function formatRelativeTime(timestamp: number): string {
