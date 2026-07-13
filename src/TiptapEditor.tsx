@@ -12,6 +12,7 @@ import {
   getDocument,
   saveDocument,
 } from './lib/documents'
+import { InlineReview } from './extensions/InlineReview'
 
 const PAGE_HEIGHT_PX = 1056 // 11in at 96dpi
 const PAGE_GAP_PX = 24
@@ -44,6 +45,7 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
       StarterKit,
       TextStyleKit,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      InlineReview,
     ],
     content: initialContent,
     onCreate: ({ editor }) => {
