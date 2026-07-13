@@ -9,6 +9,7 @@ interface ChatStartPayload {
   provider: ProviderId
   model: string
   messages: ChatMessage[]
+  promptCaching?: boolean
 }
 
 type ChatEvent = { type: 'delta'; text: string } | { type: 'done' } | { type: 'error'; message: string }
@@ -20,7 +21,9 @@ function sendChatEvent(event: IpcMainEvent, requestId: string, payload: ChatEven
 }
 
 export function registerIpcHandlers() {
-  ipcMain.on('chat:start', async (event, { requestId, provider, model, messages }: ChatStartPayload) => {
+  ipcMain.on(
+    'chat:start',
+    async (event, { requestId, provider, model, messages, promptCaching }: ChatStartPayload) => {
     const controller = new AbortController()
     activeRequests.set(requestId, controller)
 
@@ -42,6 +45,7 @@ export function registerIpcHandlers() {
         apiKey,
         model,
         messages,
+        promptCaching: Boolean(promptCaching),
         signal: controller.signal,
         onDelta: (text) => sendChatEvent(event, requestId, { type: 'delta', text }),
       })
@@ -54,7 +58,8 @@ export function registerIpcHandlers() {
     } finally {
       activeRequests.delete(requestId)
     }
-  })
+  },
+  )
 
   ipcMain.on('chat:cancel', (_event, requestId: string) => {
     activeRequests.get(requestId)?.abort()

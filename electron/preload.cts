@@ -16,6 +16,7 @@ function streamChat(
   model: string,
   messages: ChatMessage[],
   handlers: ChatStreamHandlers,
+  options?: { promptCaching?: boolean },
 ): () => void {
   const requestId = crypto.randomUUID()
   const channel = `chat:event:${requestId}`
@@ -34,7 +35,13 @@ function streamChat(
   }
 
   ipcRenderer.on(channel, listener)
-  ipcRenderer.send('chat:start', { requestId, provider, model, messages })
+  ipcRenderer.send('chat:start', {
+    requestId,
+    provider,
+    model,
+    messages,
+    promptCaching: options?.promptCaching,
+  })
 
   return () => {
     ipcRenderer.removeListener(channel, listener)

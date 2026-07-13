@@ -1,8 +1,14 @@
 import type { ProviderId } from './providers'
 
+/** Providers that support an explicit prompt-caching opt-in. */
+export const CACHABLE_PROVIDERS = ['anthropic', 'openai', 'gemini'] as const
+export type CachableProviderId = (typeof CACHABLE_PROVIDERS)[number]
+
 interface ProviderSettings {
   activeProvider: ProviderId
   models: Partial<Record<ProviderId, string>>
+  /** When true, requests opt into provider prompt caching where supported. */
+  promptCaching: Partial<Record<CachableProviderId, boolean>>
 }
 
 const SETTINGS_KEY = 'agentdocs:providerSettings'
@@ -17,11 +23,18 @@ const FALLBACK_MODELS: Record<ProviderId, string> = {
 function readSettings(): ProviderSettings {
   try {
     const raw = localStorage.getItem(SETTINGS_KEY)
-    if (raw) return JSON.parse(raw) as ProviderSettings
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ProviderSettings>
+      return {
+        activeProvider: parsed.activeProvider ?? 'anthropic',
+        models: parsed.models ?? {},
+        promptCaching: parsed.promptCaching ?? {},
+      }
+    }
   } catch {
     // fall through to defaults
   }
-  return { activeProvider: 'anthropic', models: {} }
+  return { activeProvider: 'anthropic', models: {}, promptCaching: {} }
 }
 
 function writeSettings(settings: ProviderSettings) {
@@ -43,4 +56,16 @@ export function getModelFor(provider: ProviderId): string {
 export function setModelFor(provider: ProviderId, model: string) {
   const settings = readSettings()
   writeSettings({ ...settings, models: { ...settings.models, [provider]: model } })
+}
+
+export function getPromptCachingEnabled(provider: CachableProviderId): boolean {
+  return readSettings().promptCaching[provider] ?? false
+}
+
+export function setPromptCachingEnabled(provider: CachableProviderId, enabled: boolean) {
+  const settings = readSettings()
+  writeSettings({
+    ...settings,
+    promptCaching: { ...settings.promptCaching, [provider]: enabled },
+  })
 }

@@ -31,6 +31,7 @@ declare global {
           model: string,
           messages: ChatMessage[],
           handlers: ChatStreamHandlers,
+          options?: { promptCaching?: boolean },
         ) => () => void
       }
       shell: {

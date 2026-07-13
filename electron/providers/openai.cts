@@ -1,7 +1,21 @@
 import type { ProviderStreamFn } from './types.cjs'
 
-export const streamOpenAI: ProviderStreamFn = async ({ apiKey, model, messages, signal, onDelta }) => {
+export const streamOpenAI: ProviderStreamFn = async ({
+  apiKey,
+  model,
+  messages,
+  promptCaching,
+  signal,
+  onDelta,
+}) => {
   if (!apiKey) throw new Error('No OpenAI API key configured. Add one in Settings.')
+
+  // OpenAI caches eligible prompts automatically. prompt_cache_key improves routing/hit rates
+  // for shared prefixes; older models ignore unknown fields if rejected we fall back without it.
+  const body: Record<string, unknown> = { model, messages, stream: true }
+  if (promptCaching) {
+    body.prompt_cache_key = 'agentdocs'
+  }
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -9,7 +23,7 @@ export const streamOpenAI: ProviderStreamFn = async ({ apiKey, model, messages, 
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
-    body: JSON.stringify({ model, messages, stream: true }),
+    body: JSON.stringify(body),
     signal,
   })
 

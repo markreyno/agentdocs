@@ -5,6 +5,8 @@ import TextAlign from '@tiptap/extension-text-align'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Toolbar from './Toolbar'
 import AgentSidebar from './AgentSidebar'
+import ProviderSettingsPanel from './ProviderSettingsPanel'
+import { isDesktopApp } from './lib/isDesktop'
 import {
   extractTitleFromEditor,
   getDocument,
@@ -25,6 +27,7 @@ interface TiptapEditorProps {
 export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEditorProps) {
   const [pageCount, setPageCount] = useState(1)
   const [agentOpen, setAgentOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [title, setTitle] = useState(DEFAULT_TITLE)
   const titleTouchedRef = useRef(false)
   const titleRef = useRef(title)
@@ -146,6 +149,7 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
         <Toolbar
           editor={editor}
           onToggleAgent={() => setAgentOpen((v) => !v)}
+          onOpenSettings={isDesktopApp() ? () => setSettingsOpen(true) : undefined}
           onBack={onBack}
           showBack={showBack}
           documentTitle={documentId ? title : undefined}
@@ -171,6 +175,7 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
         </div>
       </div>
       <AgentSidebar editor={editor} open={agentOpen} onClose={() => setAgentOpen(false)} />
+      {settingsOpen && <ProviderSettingsPanel onClose={() => setSettingsOpen(false)} />}
     </div>
   )
 }

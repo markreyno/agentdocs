@@ -9,6 +9,8 @@ export interface ProviderStreamParams {
   apiKey?: string
   model: string
   messages: ChatMessage[]
+  /** Opt into provider prompt caching when the provider supports it. */
+  promptCaching?: boolean
   signal: AbortSignal
   onDelta: (text: string) => void
 }

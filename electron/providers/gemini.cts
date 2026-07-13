@@ -3,6 +3,7 @@ import type { ProviderStreamFn } from './types.cjs'
 export const streamGemini: ProviderStreamFn = async ({ apiKey, model, messages, signal, onDelta }) => {
   if (!apiKey) throw new Error('No Gemini API key configured. Add one in Settings.')
 
+  // Gemini 2.5+ applies implicit prompt caching automatically for eligible prefixes.
   const contents = messages.map((m) => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
