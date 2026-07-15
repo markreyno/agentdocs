@@ -7,6 +7,8 @@ interface ChatStreamHandlers {
   onDelta: (text: string) => void
   onDone: () => void
   onError: (message: string) => void
+  /** Fired when the model calls a document search/lookup tool, for a "Searching…" style indicator. */
+  onToolUse?: (name: string, input: unknown) => void
 }
 
 declare global {
@@ -31,7 +33,7 @@ declare global {
           model: string,
           messages: ChatMessage[],
           handlers: ChatStreamHandlers,
-          options?: { promptCaching?: boolean },
+          options?: { promptCaching?: boolean; documentJson?: unknown },
         ) => () => void
       }
       shell: {

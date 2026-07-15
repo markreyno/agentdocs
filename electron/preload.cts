@@ -3,12 +3,18 @@ import type { ChatMessage, ProviderDescriptor, ProviderId } from './providers/ty
 
 declare const crypto: { randomUUID: () => string }
 
-type ChatEvent = { type: 'delta'; text: string } | { type: 'done' } | { type: 'error'; message: string }
+type ChatEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'tool'; name: string; input: unknown }
+  | { type: 'done' }
+  | { type: 'error'; message: string }
 
 interface ChatStreamHandlers {
   onDelta: (text: string) => void
   onDone: () => void
   onError: (message: string) => void
+  /** Fired when the model calls a document search/lookup tool, for a "Searching…" style indicator. */
+  onToolUse?: (name: string, input: unknown) => void
 }
 
 function streamChat(
@@ -16,7 +22,7 @@ function streamChat(
   model: string,
   messages: ChatMessage[],
   handlers: ChatStreamHandlers,
-  options?: { promptCaching?: boolean },
+  options?: { promptCaching?: boolean; documentJson?: unknown },
 ): () => void {
   const requestId = crypto.randomUUID()
   const channel = `chat:event:${requestId}`
@@ -24,6 +30,10 @@ function streamChat(
   const listener = (_event: unknown, payload: ChatEvent) => {
     if (payload.type === 'delta') {
       handlers.onDelta(payload.text)
+      return
+    }
+    if (payload.type === 'tool') {
+      handlers.onToolUse?.(payload.name, payload.input)
       return
     }
     ipcRenderer.removeListener(channel, listener)
@@ -41,6 +51,7 @@ function streamChat(
     model,
     messages,
     promptCaching: options?.promptCaching,
+    documentJson: options?.documentJson,
   })
 
   return () => {

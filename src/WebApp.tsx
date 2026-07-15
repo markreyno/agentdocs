@@ -4,6 +4,7 @@ import LearnPage from './LearnPage'
 import SignInPage from './SignInPage'
 import TiptapEditor from './TiptapEditor'
 import UserDashboard from './UserDashboard'
+import { openDesktopDownload } from './lib/desktopDownload'
 
 type Page = 'landing' | 'signin' | 'learn' | 'editor' | 'dashboard'
 
@@ -82,6 +83,7 @@ export default function WebApp() {
       onGetStarted={() => setPage('editor')}
       onSignIn={() => setPage('signin')}
       onLearn={() => setPage('learn')}
+      onDownload={openDesktopDownload}
     />
   )
 }

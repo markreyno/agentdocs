@@ -3,7 +3,15 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { sendChatMessage } from './lib/agentChat'
 import type { ChatMessage } from './lib/chatClient'
 import { withDocumentContext } from './lib/documentContext'
+import {
+  DEMO_USAGE_LIMIT,
+  getRemainingDemoUses,
+  incrementDemoUseCount,
+  isDemoLimitReached,
+  setDemoUseCountToLimit,
+} from './lib/demoUsage'
 import { isDesktopApp } from './lib/isDesktop'
+import { openDesktopDownload } from './lib/desktopDownload'
 import { findSkill, parseSlashCommand, resolveSkillTemplate, useSkills } from './lib/skills'
 import {
   locateBestRewriteTarget,
@@ -27,6 +35,9 @@ interface AgentSidebarProps {
   editor: Editor | null
   open: boolean
   onClose: () => void
+  isDemoMode?: boolean
+  agentLocked?: boolean
+  onDemoLimitReached?: () => void
 }
 
 function getSelectionAndDocument(editor: Editor | null): { selection: string; document: string } {
@@ -36,12 +47,20 @@ function getSelectionAndDocument(editor: Editor | null): { selection: string; do
   return { selection, document: editor.getText() }
 }
 
-export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProps) {
+export default function AgentSidebar({
+  editor,
+  open,
+  onClose,
+  isDemoMode = false,
+  agentLocked = false,
+  onDemoLimitReached,
+}: AgentSidebarProps) {
   const { skills, customSkills, addSkill, removeSkill } = useSkills()
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorText, setErrorText] = useState<string | null>(null)
+  const [toolStatus, setToolStatus] = useState<string | null>(null)
   const [showManageSkills, setShowManageSkills] = useState(false)
   const [showProviderSettings, setShowProviderSettings] = useState(false)
   const [newSkillName, setNewSkillName] = useState('')
@@ -124,6 +143,14 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
     const raw = input.trim()
     if (!raw || loading) return
 
+    if (isDemoMode) {
+      if (agentLocked || isDemoLimitReached()) {
+        onDemoLimitReached?.()
+        return
+      }
+      incrementDemoUseCount()
+    }
+
     setErrorText(null)
     const { selection, document } = getSelectionAndDocument(editor)
     let apiContent = raw
@@ -188,40 +215,60 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
       }, REVIEW_THROTTLE_MS)
     }
 
-    await sendChatMessage(apiMessages, {
-      onDelta: (delta) => {
-        setMessages((prev) => {
-          const updated = [...prev]
-          const last = updated[updated.length - 1]
-          updated[updated.length - 1] = { ...last, content: last.content + delta }
-          return updated
-        })
-        reviewBufferRef.current += delta
-        scheduleReviewUpdate()
+    await sendChatMessage(
+      apiMessages,
+      {
+        onDelta: (delta) => {
+          setToolStatus(null)
+          setMessages((prev) => {
+            const updated = [...prev]
+            const last = updated[updated.length - 1]
+            updated[updated.length - 1] = { ...last, content: last.content + delta }
+            return updated
+          })
+          reviewBufferRef.current += delta
+          scheduleReviewUpdate()
+        },
+        onToolUse: (name, input) => {
+          const query = (input as { query?: string; id?: string })?.query ?? (input as { id?: string })?.id ?? ''
+          setToolStatus(`Searching the manuscript (${name}${query ? `: "${query}"` : ''})…`)
+        },
+        onDone: () => {
+          if (reviewThrottleRef.current) {
+            clearTimeout(reviewThrottleRef.current)
+            reviewThrottleRef.current = null
+          }
+          flushReviewUpdate(false)
+          editor?.commands.setReviewStreaming(false)
+          reviewTargetRef.current = null
+          reviewLocateModeRef.current = false
+          setToolStatus(null)
+          setLoading(false)
+          if (isDemoMode && isDemoLimitReached()) {
+            onDemoLimitReached?.()
+          }
+        },
+        onError: (message) => {
+          if (reviewThrottleRef.current) {
+            clearTimeout(reviewThrottleRef.current)
+            reviewThrottleRef.current = null
+          }
+          editor?.commands.rejectReview()
+          reviewTargetRef.current = null
+          reviewLocateModeRef.current = false
+          setToolStatus(null)
+          setErrorText(message)
+          setLoading(false)
+        },
+        onRateLimited: () => {
+          if (isDemoMode) {
+            setDemoUseCountToLimit()
+            onDemoLimitReached?.()
+          }
+        },
       },
-      onDone: () => {
-        if (reviewThrottleRef.current) {
-          clearTimeout(reviewThrottleRef.current)
-          reviewThrottleRef.current = null
-        }
-        flushReviewUpdate(false)
-        editor?.commands.setReviewStreaming(false)
-        reviewTargetRef.current = null
-        reviewLocateModeRef.current = false
-        setLoading(false)
-      },
-      onError: (message) => {
-        if (reviewThrottleRef.current) {
-          clearTimeout(reviewThrottleRef.current)
-          reviewThrottleRef.current = null
-        }
-        editor?.commands.rejectReview()
-        reviewTargetRef.current = null
-        reviewLocateModeRef.current = false
-        setErrorText(message)
-        setLoading(false)
-      },
-    })
+      editor?.getJSON(),
+    )
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLTextAreaElement>) {
@@ -373,6 +420,14 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
         {messages.length === 0 && (
           <p className="text-xs text-gray-400">
             Ask a question, or use a command like <span className="font-mono">/summarize</span>.
+            {isDemoMode && !agentLocked && (
+              <>
+                {' '}
+                <span className="text-gray-500">
+                  ({getRemainingDemoUses()} of {DEMO_USAGE_LIMIT} demo requests left)
+                </span>
+              </>
+            )}
           </p>
         )}
         {messages.map((m, i) => (
@@ -413,6 +468,7 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
             )}
           </div>
         ))}
+        {toolStatus && <p className="text-xs italic text-gray-400">{toolStatus}</p>}
         {errorText && <p className="text-xs text-red-600">{errorText}</p>}
       </div>
 
@@ -438,15 +494,21 @@ export default function AgentSidebar({ editor, open, onClose }: AgentSidebarProp
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           rows={2}
-          placeholder="Message the agent, or type / for commands"
-          className="w-full resize-none border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          placeholder={
+            agentLocked
+              ? 'Demo limit reached — download the desktop app to use the agent'
+              : 'Message the agent, or type / for commands'
+          }
+          disabled={agentLocked}
+          className="w-full resize-none border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded-md px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-indigo-400 disabled:opacity-50 disabled:cursor-not-allowed"
         />
         <button
-          type="submit"
-          disabled={loading || !input.trim()}
+          type={agentLocked ? 'button' : 'submit'}
+          onClick={agentLocked ? openDesktopDownload : undefined}
+          disabled={!agentLocked && (loading || !input.trim())}
           className="mt-2 w-full bg-indigo-600 text-white text-sm rounded-md py-1.5 cursor-pointer hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          {loading ? 'Thinking…' : 'Send'}
+          {agentLocked ? 'Download app' : loading ? 'Thinking…' : 'Send'}
         </button>
       </form>
     </div>

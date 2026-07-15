@@ -6,7 +6,9 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Toolbar from './Toolbar'
 import AgentSidebar from './AgentSidebar'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
+import DownloadModal from './DownloadModal'
 import { isDesktopApp } from './lib/isDesktop'
+import { isDemoLimitReached } from './lib/demoUsage'
 import {
   getDocument,
   saveDocument,
@@ -30,9 +32,12 @@ function getInitialTitle(documentId?: string) {
 }
 
 export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEditorProps) {
+  const isWebDemo = !documentId && !isDesktopApp()
   const [pageCount, setPageCount] = useState(1)
   const [agentOpen, setAgentOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [agentLocked, setAgentLocked] = useState(() => isWebDemo && isDemoLimitReached())
+  const [showDownloadModal, setShowDownloadModal] = useState(() => isWebDemo && isDemoLimitReached())
   const [title, setTitle] = useState(() => getInitialTitle(documentId))
   const titleRef = useRef(title)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -59,6 +64,20 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
   useEffect(() => {
     setTitle(getInitialTitle(documentId))
   }, [documentId])
+
+  const handleDemoLimitReached = useCallback(() => {
+    setAgentLocked(true)
+    setShowDownloadModal(true)
+  }, [])
+
+  const handleKeepBrowsing = useCallback(() => {
+    setShowDownloadModal(false)
+  }, [])
+
+  useEffect(() => {
+    if (!editor) return
+    editor.setEditable(!showDownloadModal)
+  }, [editor, showDownloadModal])
 
   useEffect(() => {
     if (!editor) return
@@ -132,7 +151,7 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
 
   return (
     <div className="flex w-full">
-      <div className="editor-workspace flex-1 min-w-0">
+      <div className={`editor-workspace flex-1 min-w-0${showDownloadModal ? ' editor-workspace--locked' : ''}`}>
         <Toolbar
           editor={editor}
           onToggleAgent={() => setAgentOpen((v) => !v)}
@@ -161,8 +180,18 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
           </div>
         </div>
       </div>
-      <AgentSidebar editor={editor} open={agentOpen} onClose={() => setAgentOpen(false)} />
+      <AgentSidebar
+        editor={editor}
+        open={agentOpen}
+        onClose={() => setAgentOpen(false)}
+        isDemoMode={isWebDemo}
+        agentLocked={agentLocked}
+        onDemoLimitReached={handleDemoLimitReached}
+      />
       {settingsOpen && <ProviderSettingsPanel onClose={() => setSettingsOpen(false)} />}
+      {showDownloadModal && (
+        <DownloadModal onClose={handleKeepBrowsing} />
+      )}
     </div>
   )
 }

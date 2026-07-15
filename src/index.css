@@ -166,6 +166,14 @@ code {
   min-height: calc(100svh - 4rem);
 }
 
+.editor-workspace--locked .outlook-ribbon,
+.editor-workspace--locked .editor-scroll {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+  transition: filter 0.35s ease;
+}
+
 .editor-scroll {
   flex: 1;
   overflow-y: auto;

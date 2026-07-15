@@ -1,8 +1,11 @@
 import { ipcMain, shell, type IpcMainEvent } from 'electron'
+import type { JSONContent } from '@tiptap/core'
+import { buildDocTree } from './docTree.cjs'
+import { DOC_TOOLS, executeDocTool } from './docTools.cjs'
 import { deleteKey, getKey, listKeyStatus, setKey } from './keyStore.cjs'
 import { ensureOllamaRunning } from './ollamaService.cjs'
 import { getStreamFn, listOllamaModels, PROVIDERS } from './providers/index.cjs'
-import type { ChatMessage, ProviderId } from './providers/types.cjs'
+import type { ChatMessage, ProviderId, ToolDefinition } from './providers/types.cjs'
 
 interface ChatStartPayload {
   requestId: string
@@ -10,9 +13,14 @@ interface ChatStartPayload {
   model: string
   messages: ChatMessage[]
   promptCaching?: boolean
+  documentJson?: JSONContent
 }
 
-type ChatEvent = { type: 'delta'; text: string } | { type: 'done' } | { type: 'error'; message: string }
+type ChatEvent =
+  | { type: 'delta'; text: string }
+  | { type: 'tool'; name: string; input: unknown }
+  | { type: 'done' }
+  | { type: 'error'; message: string }
 
 const activeRequests = new Map<string, AbortController>()
 
@@ -23,7 +31,7 @@ function sendChatEvent(event: IpcMainEvent, requestId: string, payload: ChatEven
 export function registerIpcHandlers() {
   ipcMain.on(
     'chat:start',
-    async (event, { requestId, provider, model, messages, promptCaching }: ChatStartPayload) => {
+    async (event, { requestId, provider, model, messages, promptCaching, documentJson }: ChatStartPayload) => {
     const controller = new AbortController()
     activeRequests.set(requestId, controller)
 
@@ -39,6 +47,7 @@ export function registerIpcHandlers() {
         }
       }
 
+      const tree = documentJson ? buildDocTree(documentJson) : undefined
       const apiKey = getKey(provider)
       const stream = getStreamFn(provider)
       await stream({
@@ -48,6 +57,13 @@ export function registerIpcHandlers() {
         promptCaching: Boolean(promptCaching),
         signal: controller.signal,
         onDelta: (text) => sendChatEvent(event, requestId, { type: 'delta', text }),
+        ...(tree
+          ? {
+              tools: DOC_TOOLS as unknown as ToolDefinition[],
+              executeTool: (name: string, input: Record<string, unknown>) => executeDocTool(tree, name, input),
+              onToolUse: (name: string, input: unknown) => sendChatEvent(event, requestId, { type: 'tool', name, input }),
+            }
+          : {}),
       })
       sendChatEvent(event, requestId, { type: 'done' })
     } catch (err) {

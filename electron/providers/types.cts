@@ -5,6 +5,19 @@ export interface ChatMessage {
   content: string
 }
 
+/** Provider-agnostic tool schema (JSON Schema `input_schema`), mapped to each provider's own wire format. */
+export interface ToolDefinition {
+  name: string
+  description: string
+  input_schema: {
+    type: 'object'
+    properties: Record<string, unknown>
+    required?: readonly string[]
+  }
+}
+
+export type ToolExecutor = (name: string, input: Record<string, unknown>) => unknown
+
 export interface ProviderStreamParams {
   apiKey?: string
   model: string
@@ -13,6 +26,11 @@ export interface ProviderStreamParams {
   promptCaching?: boolean
   signal: AbortSignal
   onDelta: (text: string) => void
+  /** Doc search/lookup tools available this turn, present only when a document tree was supplied. */
+  tools?: ToolDefinition[]
+  executeTool?: ToolExecutor
+  /** Fired when the model calls a tool, for a "Searching…" style indicator. */
+  onToolUse?: (name: string, input: unknown) => void
 }
 
 export type ProviderStreamFn = (params: ProviderStreamParams) => Promise<void>
