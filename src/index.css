@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -183,48 +183,32 @@ code {
 
 .editor-document {
   position: relative;
-  width: 8.5in;
+  width: fit-content;
   max-width: 100%;
   margin: 0 auto;
 }
 
-.editor-pages {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-.editor-page {
-  position: absolute;
-  left: 0;
-  width: 100%;
-  height: 11in;
-  background: var(--editor-page);
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.08),
-    0 4px 12px rgba(0, 0, 0, 0.06);
-}
-
-[data-theme="dark"] .editor-page {
-  box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.35),
-    0 4px 12px rgba(0, 0, 0, 0.4);
-}
-
 .editor-content {
   position: relative;
-  z-index: 1;
-  padding: 1in;
-  min-height: 11in;
-  box-sizing: border-box;
 }
 
 .editor-content .tiptap,
 .editor-content .ProseMirror {
   outline: none;
   border: none;
-  min-height: 9in;
+  box-sizing: border-box;
+  background: var(--editor-page);
   color: var(--editor-text);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .editor-content .tiptap,
+[data-theme="dark"] .editor-content .ProseMirror {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
 .editor-content .tiptap:focus,
@@ -232,7 +216,49 @@ code {
 .editor-content .tiptap:focus-visible,
 .editor-content .ProseMirror:focus-visible {
   outline: none;
-  box-shadow: none;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.08),
+    0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+[data-theme="dark"] .editor-content .tiptap:focus,
+[data-theme="dark"] .editor-content .ProseMirror:focus,
+[data-theme="dark"] .editor-content .tiptap:focus-visible,
+[data-theme="dark"] .editor-content .ProseMirror:focus-visible {
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35),
+    0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+/* PaginationPlus paints its own page chrome; keep gap chrome quiet */
+.editor-content .rm-with-pagination {
+  border-color: transparent !important;
+}
+
+.editor-content .rm-page-header {
+  min-height: 1.25rem;
+  align-items: flex-end;
+  box-sizing: border-box;
+}
+
+.editor-content .page-header-spacer {
+  display: block;
+  min-height: 1.25rem;
+  line-height: 1.25rem;
+}
+
+.editor-content .page-header-title {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  line-height: 1.25rem;
+  color: color-mix(in srgb, var(--editor-text) 45%, transparent);
 }
 
 /* Outlook-style ribbon toolbar */

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import type { ProviderDescriptor, ProviderId } from './lib/providers'
 import { ensureOllamaWhenSelected } from './lib/ollama'
 import {
@@ -98,7 +99,7 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
     setKeyStatus((prev) => ({ ...prev, [provider]: false }))
   }
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 font-sans">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200">
@@ -217,7 +218,8 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
           ))}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

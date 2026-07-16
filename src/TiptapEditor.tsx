@@ -2,6 +2,7 @@ import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
 import { TextStyleKit } from '@tiptap/extension-text-style'
 import TextAlign from '@tiptap/extension-text-align'
+import { PaginationPlus } from 'tiptap-pagination-plus'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import Toolbar from './Toolbar'
 import AgentSidebar from './AgentSidebar'
@@ -14,9 +15,17 @@ import {
   saveDocument,
 } from './lib/documents'
 import { InlineReview } from './extensions/InlineReview'
+import { useTheme } from './lib/theme'
+import {
+  PAGE_GAP_PX,
+  PAGE_HEADER_CONTENT_GAP_PX,
+  PAGE_HEIGHT_PX,
+  PAGE_MARGIN_PX,
+  PAGE_WIDTH_PX,
+  canvasColorForTheme,
+  pageHeaderLeftHtml,
+} from './lib/pageLayout'
 
-const PAGE_HEIGHT_PX = 1056 // 11in at 96dpi
-const PAGE_GAP_PX = 24
 const DEFAULT_TEXT_COLOR = '#000000'
 const DEFAULT_TITLE = 'Untitled document'
 
@@ -32,8 +41,8 @@ function getInitialTitle(documentId?: string) {
 }
 
 export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEditorProps) {
+  const { theme } = useTheme()
   const isWebDemo = !documentId && !isDesktopApp()
-  const [pageCount, setPageCount] = useState(1)
   const [agentOpen, setAgentOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [agentLocked, setAgentLocked] = useState(() => isWebDemo && isDemoLimitReached())
@@ -48,18 +57,52 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     ? getDocument(documentId)?.content ?? '<p></p>'
     : '<p></p>'
 
+  const canvasColor = canvasColorForTheme(theme)
+
   const editor = useEditor({
     extensions: [
       StarterKit,
       TextStyleKit,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       InlineReview,
+      PaginationPlus.configure({
+        pageHeight: PAGE_HEIGHT_PX,
+        pageWidth: PAGE_WIDTH_PX,
+        pageGap: PAGE_GAP_PX,
+        pageGapBorderSize: 0,
+        pageGapBorderColor: canvasColor,
+        pageBreakBackground: canvasColor,
+        marginTop: PAGE_MARGIN_PX,
+        marginBottom: PAGE_MARGIN_PX,
+        marginLeft: PAGE_MARGIN_PX,
+        marginRight: PAGE_MARGIN_PX,
+        contentMarginTop: PAGE_HEADER_CONTENT_GAP_PX,
+        contentMarginBottom: 0,
+        headerLeft: pageHeaderLeftHtml(documentId ? getInitialTitle(documentId) : undefined),
+        headerRight: '',
+        footerLeft: '',
+        footerRight: '',
+      }),
     ],
     content: initialContent,
     onCreate: ({ editor }) => {
       editor.chain().focus().setColor(DEFAULT_TEXT_COLOR).run()
     },
   }, [documentId])
+
+  useEffect(() => {
+    if (!editor) return
+    editor.chain().updatePageBreakBackground(canvasColor).run()
+    editor.view.dom.style.setProperty('--rm-page-gap-border-color', canvasColor)
+  }, [editor, canvasColor])
+
+  useEffect(() => {
+    if (!editor) return
+    editor
+      .chain()
+      .updateHeaderContent(pageHeaderLeftHtml(documentId ? title : undefined), '')
+      .run()
+  }, [editor, documentId, title])
 
   useEffect(() => {
     setTitle(getInitialTitle(documentId))
@@ -91,26 +134,6 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     if (!editor) return
     editor.setEditable(!showDownloadModal)
   }, [editor, showDownloadModal])
-
-  useEffect(() => {
-    if (!editor) return
-
-    const updatePageCount = () => {
-      const contentEl = editor.view.dom.closest('.editor-content')
-      const totalHeight = contentEl?.scrollHeight ?? editor.view.dom.scrollHeight
-      const pages = Math.max(1, Math.ceil(totalHeight / PAGE_HEIGHT_PX))
-      setPageCount(pages)
-    }
-
-    updatePageCount()
-    editor.on('update', updatePageCount)
-    editor.on('selectionUpdate', updatePageCount)
-
-    return () => {
-      editor.off('update', updatePageCount)
-      editor.off('selectionUpdate', updatePageCount)
-    }
-  }, [editor])
 
   // Content autosave must not write the title — remount/effect cleanup used to
   // persist the default "Untitled document" before the real title loaded.
@@ -159,9 +182,6 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     }
   }
 
-  const documentHeight =
-    pageCount * PAGE_HEIGHT_PX + (pageCount - 1) * PAGE_GAP_PX
-
   return (
     <div className="flex w-full">
       <div className={`editor-workspace flex-1 min-w-0${showDownloadModal ? ' editor-workspace--locked' : ''}`}>
@@ -176,19 +196,7 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
           onDocumentTitleBlur={documentId ? handleTitleBlur : undefined}
         />
         <div className="editor-scroll">
-          <div
-            className="editor-document"
-            style={{ minHeight: documentHeight }}
-          >
-            <div className="editor-pages" aria-hidden="true">
-              {Array.from({ length: pageCount }, (_, index) => (
-                <div
-                  key={index}
-                  className="editor-page"
-                  style={{ top: index * (PAGE_HEIGHT_PX + PAGE_GAP_PX) }}
-                />
-              ))}
-            </div>
+          <div className="editor-document">
             <EditorContent editor={editor} className="editor-content" />
           </div>
         </div>
