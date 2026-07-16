@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { randomUUID } from 'node:crypto'
 import express from 'express'
 import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
@@ -10,12 +11,25 @@ const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 8787
 const MAX_TOOL_ITERATIONS = 6
 const DEMO_RATE_LIMIT = 5
 
+/**
+ * Identifies this process's lifetime. The client persists its demo-use count in
+ * localStorage across restarts; comparing against this lets it notice the server
+ * (and its in-memory usage map) restarted and resync instead of staying stuck at
+ * "limit reached" forever.
+ */
+const SERVER_EPOCH = randomUUID()
+
 const anthropic = new Anthropic()
 
 const app = express()
 app.use(express.json({ limit: '2mb' }))
 
 const demoUsageByIp = new Map<string, number>()
+
+app.get('/api/demo-status', (req, res) => {
+  const usageCount = demoUsageByIp.get(getClientIp(req)) ?? 0
+  res.json({ epoch: SERVER_EPOCH, remaining: Math.max(0, DEMO_RATE_LIMIT - usageCount) })
+})
 
 function getClientIp(req: express.Request): string {
   const forwarded = req.headers['x-forwarded-for']

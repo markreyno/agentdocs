@@ -1,8 +1,10 @@
 import type { Editor } from '@tiptap/react'
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react'
 import { sendChatMessage } from './lib/agentChat'
 import type { ChatMessage } from './lib/chatClient'
 import { withDocumentContext } from './lib/documentContext'
+import { applyReplaceInEditor, executeRendererDocTool, type ReplaceTextInput } from './lib/editTools'
+import { applyReplaceStoryInEditor, type ReplaceStoryInput } from './lib/storyEdit'
 import {
   DEMO_USAGE_LIMIT,
   getRemainingDemoUses,
@@ -13,15 +15,7 @@ import {
 import { isDesktopApp } from './lib/isDesktop'
 import { openDesktopDownload } from './lib/desktopDownload'
 import { findSkill, parseSlashCommand, resolveSkillTemplate, useSkills } from './lib/skills'
-import {
-  locateBestRewriteTarget,
-  locateTextInDoc,
-  parseFindReplace,
-  proposedFromAssistant,
-} from './lib/textLocate'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
-
-const REVIEW_THROTTLE_MS = 120
 
 interface DisplayMessage {
   role: 'user' | 'assistant'
@@ -47,6 +41,44 @@ function getSelectionAndDocument(editor: Editor | null): { selection: string; do
   return { selection, document: editor.getText() }
 }
 
+function getSelectionRange(editor: Editor | null) {
+  if (!editor) return undefined
+  const { from, to, empty } = editor.state.selection
+  if (empty) return undefined
+  return { from, to, text: editor.state.doc.textBetween(from, to, '\n') }
+}
+
+function truncateToolLabel(text: string, max = 40): string {
+  return text.length <= max ? text : `${text.slice(0, max)}…`
+}
+
+function formatToolStatus(name: string, input: unknown): string {
+  if (name === 'replace_story') {
+    const count =
+      (input as { blocks?: unknown[] })?.blocks?.length ??
+      (input as { paragraphs?: unknown[] })?.paragraphs?.length ??
+      0
+    return `Proposing consolidated story edit (${count} block${count === 1 ? '' : 's'})…`
+  }
+  if (name === 'get_story_blocks') {
+    return 'Reading story structure…'
+  }
+  if (name === 'replace_text') {
+    const find = (input as { find?: string })?.find?.trim()
+    const replaceAll = (input as { replace_all?: boolean })?.replace_all
+    if (replaceAll) {
+      return find
+        ? `Proposing edits everywhere (replace_text: "${truncateToolLabel(find)}")…`
+        : 'Proposing edits for all matches…'
+    }
+    return find
+      ? `Proposing edit (replace_text: "${truncateToolLabel(find)}")…`
+      : 'Proposing edit for selection…'
+  }
+  const query = (input as { query?: string; id?: string })?.query ?? (input as { id?: string })?.id ?? ''
+  return `Searching the manuscript (${name}${query ? `: "${query}"` : ''})…`
+}
+
 export default function AgentSidebar({
   editor,
   open,
@@ -67,16 +99,6 @@ export default function AgentSidebar({
   const [newSkillDescription, setNewSkillDescription] = useState('')
   const [newSkillTemplate, setNewSkillTemplate] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const reviewTargetRef = useRef<{ from: number; to: number; baseText: string } | null>(null)
-  const reviewBufferRef = useRef('')
-  const reviewThrottleRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const reviewLocateModeRef = useRef(false)
-
-  useEffect(() => {
-    return () => {
-      if (reviewThrottleRef.current) clearTimeout(reviewThrottleRef.current)
-    }
-  }, [])
 
   if (!open) return null
 
@@ -91,51 +113,14 @@ export default function AgentSidebar({
     inputRef.current?.focus()
   }
 
-  function beginReviewAt(
-    from: number,
-    to: number,
-    baseText: string,
-    proposedText: string,
-    streaming: boolean,
-  ) {
+  function trackReplaceTextReview(input: unknown) {
     if (!editor) return
-    reviewTargetRef.current = { from, to, baseText }
-    editor
-      .chain()
-      .startReview({ from, to, baseText, proposedText, streaming })
-      .setTextSelection(to)
-      .scrollIntoView()
-      .run()
+    applyReplaceInEditor(editor, input as ReplaceTextInput, getSelectionRange(editor), false)
   }
 
-  /** Attach or refresh an inline review from the latest assistant buffer. */
-  function syncAutoLocatedReview(buffer: string, streaming: boolean) {
+  function trackReplaceStoryReview(input: unknown) {
     if (!editor) return
-
-    const parsed = parseFindReplace(buffer)
-    if (parsed?.findComplete && parsed.find.trim()) {
-      const range = locateTextInDoc(editor.state.doc, parsed.find)
-      if (range) {
-        const proposed = parsed.replace
-        if (!reviewTargetRef.current) {
-          beginReviewAt(range.from, range.to, range.text, proposed, streaming)
-        } else {
-          reviewBufferRef.current = proposed
-          editor.commands.updateReviewProposed(proposed, streaming)
-        }
-        return
-      }
-    }
-
-    // Unstructured rewrite: once finished (or late in stream), fuzzy-match a paragraph.
-    if (!streaming && !reviewTargetRef.current) {
-      const proposed = proposedFromAssistant(buffer).trim()
-      if (!proposed) return
-      const range = locateBestRewriteTarget(editor.state.doc, proposed)
-      if (range) {
-        beginReviewAt(range.from, range.to, range.text, proposed, false)
-      }
-    }
+    applyReplaceStoryInEditor(editor, input as ReplaceStoryInput)
   }
 
   async function handleSend(e: FormEvent) {
@@ -171,49 +156,9 @@ export default function AgentSidebar({
     setMessages([...nextMessages, { role: 'assistant', content: '' }])
     setInput('')
     setLoading(true)
-
-    reviewBufferRef.current = ''
-    if (reviewThrottleRef.current) {
-      clearTimeout(reviewThrottleRef.current)
-      reviewThrottleRef.current = null
-    }
-
-    // Selection → review that span immediately. Otherwise locate the passage from the model reply.
-    if (editor) {
-      const { from, to, empty } = editor.state.selection
-      if (!empty) {
-        reviewLocateModeRef.current = false
-        const baseText = editor.state.doc.textBetween(from, to, '\n')
-        beginReviewAt(from, to, baseText, '', true)
-      } else {
-        reviewLocateModeRef.current = true
-        reviewTargetRef.current = null
-        editor.commands.rejectReview()
-      }
-    } else {
-      reviewLocateModeRef.current = false
-      reviewTargetRef.current = null
-    }
+    editor?.commands.rejectReview()
 
     const apiMessages: ChatMessage[] = nextMessages.map((m) => ({ role: m.role, content: m.content }))
-
-    const flushReviewUpdate = (streaming: boolean) => {
-      if (!editor) return
-      if (reviewLocateModeRef.current) {
-        syncAutoLocatedReview(reviewBufferRef.current, streaming)
-        return
-      }
-      if (!reviewTargetRef.current) return
-      editor.commands.updateReviewProposed(reviewBufferRef.current, streaming)
-    }
-
-    const scheduleReviewUpdate = () => {
-      if (reviewThrottleRef.current) return
-      reviewThrottleRef.current = setTimeout(() => {
-        reviewThrottleRef.current = null
-        flushReviewUpdate(true)
-      }, REVIEW_THROTTLE_MS)
-    }
 
     await sendChatMessage(
       apiMessages,
@@ -226,22 +171,18 @@ export default function AgentSidebar({
             updated[updated.length - 1] = { ...last, content: last.content + delta }
             return updated
           })
-          reviewBufferRef.current += delta
-          scheduleReviewUpdate()
         },
         onToolUse: (name, input) => {
-          const query = (input as { query?: string; id?: string })?.query ?? (input as { id?: string })?.id ?? ''
-          setToolStatus(`Searching the manuscript (${name}${query ? `: "${query}"` : ''})…`)
+          setToolStatus(formatToolStatus(name, input))
+          if (!isDesktopApp() && name === 'replace_text') {
+            trackReplaceTextReview(input)
+          }
+          if (!isDesktopApp() && name === 'replace_story') {
+            trackReplaceStoryReview(input)
+          }
         },
         onDone: () => {
-          if (reviewThrottleRef.current) {
-            clearTimeout(reviewThrottleRef.current)
-            reviewThrottleRef.current = null
-          }
-          flushReviewUpdate(false)
           editor?.commands.setReviewStreaming(false)
-          reviewTargetRef.current = null
-          reviewLocateModeRef.current = false
           setToolStatus(null)
           setLoading(false)
           if (isDemoMode && isDemoLimitReached()) {
@@ -249,13 +190,7 @@ export default function AgentSidebar({
           }
         },
         onError: (message) => {
-          if (reviewThrottleRef.current) {
-            clearTimeout(reviewThrottleRef.current)
-            reviewThrottleRef.current = null
-          }
           editor?.commands.rejectReview()
-          reviewTargetRef.current = null
-          reviewLocateModeRef.current = false
           setToolStatus(null)
           setErrorText(message)
           setLoading(false)
@@ -268,6 +203,10 @@ export default function AgentSidebar({
         },
       },
       editor?.getJSON(),
+      {
+        executeRendererTool: async (name, input) =>
+          executeRendererDocTool(editor, name, input, getSelectionRange(editor)),
+      },
     )
   }
 
@@ -276,47 +215,6 @@ export default function AgentSidebar({
       e.preventDefault()
       handleSend(e)
     }
-  }
-
-  function insertAtCursor(text: string) {
-    editor?.chain().focus().insertContent(text).run()
-  }
-
-  function replaceSelection(text: string) {
-    if (!editor) return
-    const { from, to } = editor.state.selection
-    editor.chain().focus().insertContentAt({ from, to }, text).run()
-  }
-
-  /** Preview AI text as an inline review — uses selection, or auto-locates the passage in the doc. */
-  function reviewInDocument(text: string) {
-    if (!editor) return
-    const { from, to, empty } = editor.state.selection
-
-    if (!empty) {
-      const baseText = editor.state.doc.textBetween(from, to, '\n')
-      beginReviewAt(from, to, baseText, proposedFromAssistant(text), false)
-      return
-    }
-
-    const parsed = parseFindReplace(text)
-    if (parsed?.find.trim()) {
-      const range = locateTextInDoc(editor.state.doc, parsed.find)
-      if (range) {
-        beginReviewAt(range.from, range.to, range.text, parsed.replace || proposedFromAssistant(text), false)
-        return
-      }
-    }
-
-    const proposed = proposedFromAssistant(text).trim() || text.trim()
-    const range = locateBestRewriteTarget(editor.state.doc, proposed)
-    if (range) {
-      beginReviewAt(range.from, range.to, range.text, proposed, false)
-      return
-    }
-
-    // Last resort: insert preview at cursor
-    beginReviewAt(from, from, '', proposed, false)
   }
 
   function handleAddSkill(e: FormEvent) {
@@ -441,31 +339,6 @@ export default function AgentSidebar({
             >
               {m.display ?? (m.content || (loading && i === messages.length - 1 ? '…' : ''))}
             </div>
-            {m.role === 'assistant' && m.content && (!loading || i !== messages.length - 1) && (
-              <div className="mt-1 flex flex-wrap gap-2 justify-start">
-                <button
-                  type="button"
-                  onClick={() => reviewInDocument(m.content)}
-                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 cursor-pointer font-medium"
-                >
-                  Review in document
-                </button>
-                <button
-                  type="button"
-                  onClick={() => insertAtCursor(m.content)}
-                  className="text-xs text-gray-500 hover:text-indigo-600 cursor-pointer"
-                >
-                  Insert at cursor
-                </button>
-                <button
-                  type="button"
-                  onClick={() => replaceSelection(m.content)}
-                  className="text-xs text-gray-500 hover:text-indigo-600 cursor-pointer"
-                >
-                  Replace selection
-                </button>
-              </div>
-            )}
           </div>
         ))}
         {toolStatus && <p className="text-xs italic text-gray-400">{toolStatus}</p>}

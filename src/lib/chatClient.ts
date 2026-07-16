@@ -7,7 +7,7 @@ interface StreamChatHandlers {
   onDelta: (text: string) => void
   onDone: () => void
   onError: (message: string) => void
-  /** Fired when the model calls a document search/lookup tool, for a "Searching…" style indicator. */
+  /** Fired when the model calls a document tool, for a status indicator. */
   onToolUse?: (name: string, input: unknown) => void
   onRateLimited?: () => void
 }

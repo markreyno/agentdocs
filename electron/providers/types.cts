@@ -16,7 +16,7 @@ export interface ToolDefinition {
   }
 }
 
-export type ToolExecutor = (name: string, input: Record<string, unknown>) => unknown
+export type ToolExecutor = (name: string, input: Record<string, unknown>) => unknown | Promise<unknown>
 
 export interface ProviderStreamParams {
   apiKey?: string

@@ -44,7 +44,7 @@ export const streamAnthropic: ProviderStreamFn = async ({
     for (const block of finalMessage.content) {
       if (block.type !== 'tool_use') continue
       onToolUse?.(block.name, block.input)
-      const result = executeTool(block.name, block.input as Record<string, unknown>)
+      const result = await Promise.resolve(executeTool(block.name, block.input as Record<string, unknown>))
       toolResults.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(result) })
     }
     convo.push({ role: 'user', content: toolResults })

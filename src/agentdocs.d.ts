@@ -7,9 +7,11 @@ interface ChatStreamHandlers {
   onDelta: (text: string) => void
   onDone: () => void
   onError: (message: string) => void
-  /** Fired when the model calls a document search/lookup tool, for a "Searching…" style indicator. */
+  /** Fired when the model calls a document tool, for a status indicator. */
   onToolUse?: (name: string, input: unknown) => void
 }
+
+type RendererToolExecutor = (name: string, input: Record<string, unknown>) => Promise<unknown>
 
 declare global {
   interface Window {
@@ -33,7 +35,11 @@ declare global {
           model: string,
           messages: ChatMessage[],
           handlers: ChatStreamHandlers,
-          options?: { promptCaching?: boolean; documentJson?: unknown },
+          options?: {
+            promptCaching?: boolean
+            documentJson?: unknown
+            executeRendererTool?: RendererToolExecutor
+          },
         ) => () => void
       }
       shell: {

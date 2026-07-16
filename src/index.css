@@ -411,6 +411,106 @@ code {
   color: var(--ribbon-danger);
 }
 
+.outlook-outline-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 30;
+  width: min(320px, calc(100vw - 24px));
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ribbon-border);
+  border-radius: 2px;
+  background: var(--ribbon-control-bg);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+}
+
+.outlook-outline-header {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ribbon-border);
+  color: var(--ribbon-text);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--sans);
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.outlook-outline-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+}
+
+.outlook-outline-item {
+  margin: 0;
+  padding: 0;
+}
+
+.outlook-outline-row {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px 6px 8px;
+  border: none;
+  background: transparent;
+  color: var(--ribbon-text);
+  font-size: 13px;
+  font-family: var(--sans);
+  text-align: left;
+  cursor: pointer;
+}
+
+.outlook-outline-row:hover {
+  background: var(--ribbon-dropdown-hover);
+}
+
+.outlook-outline-type {
+  flex-shrink: 0;
+  min-width: 3.6rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ribbon-muted);
+}
+
+.outlook-outline-type--book {
+  color: #0078d4;
+}
+
+.outlook-outline-type--act {
+  color: #8764b8;
+}
+
+.outlook-outline-type--chapter {
+  color: #107c10;
+}
+
+.outlook-outline-type--scene {
+  color: var(--ribbon-muted);
+}
+
+.outlook-outline-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.outlook-outline-empty {
+  margin: 0;
+  padding: 8px 12px 12px;
+  color: var(--ribbon-muted);
+  font-size: 12px;
+  font-family: var(--sans);
+  line-height: 1.4;
+}
+
 .outlook-agent-btn {
   height: 28px;
   padding: 0 12px;

@@ -13,19 +13,48 @@ interface ChatStreamHandlers {
   onDelta: (text: string) => void
   onDone: () => void
   onError: (message: string) => void
-  /** Fired when the model calls a document search/lookup tool, for a "Searching…" style indicator. */
+  /** Fired when the model calls a document tool, for a status indicator. */
   onToolUse?: (name: string, input: unknown) => void
 }
+
+type RendererToolExecutor = (name: string, input: Record<string, unknown>) => Promise<unknown>
 
 function streamChat(
   provider: ProviderId,
   model: string,
   messages: ChatMessage[],
   handlers: ChatStreamHandlers,
-  options?: { promptCaching?: boolean; documentJson?: unknown },
+  options?: {
+    promptCaching?: boolean
+    documentJson?: unknown
+    executeRendererTool?: RendererToolExecutor
+  },
 ): () => void {
   const requestId = crypto.randomUUID()
   const channel = `chat:event:${requestId}`
+  const rendererToolChannel = `chat:renderer-tool:${requestId}`
+
+  const rendererToolListener = async (
+    _event: unknown,
+    payload: { toolCallId: string; name: string; input: Record<string, unknown> },
+  ) => {
+    try {
+      const result = options?.executeRendererTool
+        ? await options.executeRendererTool(payload.name, payload.input)
+        : { error: 'No renderer tool handler registered' }
+      await ipcRenderer.invoke('chat:renderer-tool-result', {
+        requestId,
+        toolCallId: payload.toolCallId,
+        result,
+      })
+    } catch (err) {
+      await ipcRenderer.invoke('chat:renderer-tool-result', {
+        requestId,
+        toolCallId: payload.toolCallId,
+        error: err instanceof Error ? err.message : 'Renderer tool failed',
+      })
+    }
+  }
 
   const listener = (_event: unknown, payload: ChatEvent) => {
     if (payload.type === 'delta') {
@@ -37,6 +66,7 @@ function streamChat(
       return
     }
     ipcRenderer.removeListener(channel, listener)
+    ipcRenderer.removeListener(rendererToolChannel, rendererToolListener)
     if (payload.type === 'done') {
       handlers.onDone()
     } else {
@@ -45,6 +75,7 @@ function streamChat(
   }
 
   ipcRenderer.on(channel, listener)
+  ipcRenderer.on(rendererToolChannel, rendererToolListener)
   ipcRenderer.send('chat:start', {
     requestId,
     provider,
@@ -56,6 +87,7 @@ function streamChat(
 
   return () => {
     ipcRenderer.removeListener(channel, listener)
+    ipcRenderer.removeListener(rendererToolChannel, rendererToolListener)
     ipcRenderer.send('chat:cancel', requestId)
   }
 }

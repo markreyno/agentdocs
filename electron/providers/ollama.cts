@@ -86,7 +86,7 @@ export const streamOllama: ProviderStreamFn = async ({
     convo.push({ role: 'assistant', content: assistantContent, tool_calls: toolCalls })
     for (const tc of toolCalls) {
       onToolUse?.(tc.function.name, tc.function.arguments)
-      const result = executeTool(tc.function.name, tc.function.arguments ?? {})
+      const result = await Promise.resolve(executeTool(tc.function.name, tc.function.arguments ?? {}))
       convo.push({ role: 'tool', content: JSON.stringify(result) })
     }
   }

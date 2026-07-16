@@ -117,7 +117,7 @@ export const streamOpenAI: ProviderStreamFn = async ({
         // malformed args from the model; execute with an empty input rather than failing the turn
       }
       onToolUse?.(tc.name ?? '', input)
-      const result = executeTool(tc.name ?? '', input)
+      const result = await Promise.resolve(executeTool(tc.name ?? '', input))
       convo.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) })
     }
   }

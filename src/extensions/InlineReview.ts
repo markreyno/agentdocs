@@ -2,29 +2,43 @@ import { Extension } from '@tiptap/core'
 import { Plugin, PluginKey, type EditorState, type Transaction } from '@tiptap/pm/state'
 import { Decoration, DecorationSet, type EditorView } from '@tiptap/pm/view'
 import { computeDiff, type DiffOp } from '../lib/diffEngine'
+import { applyReviewHunkToTransaction } from '../lib/applyReviewHunk'
 
-export type ReviewSessionState = {
-  id: string
+export type ReviewHunk = {
   baseFrom: number
   baseTo: number
   baseText: string
   proposedText: string
   ops: DiffOp[]
+}
+
+export type ReviewSessionState = {
+  id: string
+  hunks: ReviewHunk[]
   streaming: boolean
 }
 
-export type StartReviewOptions = {
+export type ReviewHunkOptions = {
   from: number
   to: number
   baseText: string
+  proposedText: string
+}
+
+export type StartReviewOptions = {
+  from?: number
+  to?: number
+  baseText?: string
   proposedText?: string
   streaming?: boolean
+  hunks?: ReviewHunkOptions[]
 }
 
 declare module '@tiptap/core' {
   interface Commands<ReturnType> {
     inlineReview: {
       startReview: (options: StartReviewOptions) => ReturnType
+      appendReviewHunks: (hunks: ReviewHunkOptions[]) => ReturnType
       updateReviewProposed: (proposedText: string, streaming?: boolean) => ReturnType
       setReviewStreaming: (streaming: boolean) => ReturnType
       acceptReview: () => ReturnType
@@ -35,6 +49,7 @@ declare module '@tiptap/core' {
 
 type ReviewMeta =
   | { type: 'start'; session: ReviewSessionState }
+  | { type: 'append'; session: ReviewSessionState }
   | { type: 'update'; proposedText: string; streaming: boolean }
   | { type: 'streaming'; streaming: boolean }
   | { type: 'accept'; session: ReviewSessionState }
@@ -52,23 +67,49 @@ function newSessionId() {
   return `review-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 }
 
-function buildSession(
-  id: string,
+function buildHunk(
   baseFrom: number,
   baseTo: number,
   baseText: string,
   proposedText: string,
-  streaming: boolean,
-): ReviewSessionState {
+): ReviewHunk {
   return {
-    id,
     baseFrom,
     baseTo,
     baseText,
     proposedText,
     ops: computeDiff(baseText, proposedText),
-    streaming,
   }
+}
+
+function normalizeStartOptions(options: StartReviewOptions): ReviewHunk[] {
+  if (options.hunks?.length) {
+    return options.hunks.map((hunk) =>
+      buildHunk(hunk.from, hunk.to, hunk.baseText, hunk.proposedText),
+    )
+  }
+
+  const from = options.from ?? 0
+  const to = options.to ?? from
+  const baseText = options.baseText ?? ''
+  const proposedText = options.proposedText ?? ''
+  return [buildHunk(from, to, baseText, proposedText)]
+}
+
+function buildSession(id: string, hunks: ReviewHunk[], streaming: boolean): ReviewSessionState {
+  return { id, hunks, streaming }
+}
+
+function dedupeHunks(hunks: ReviewHunk[]): ReviewHunk[] {
+  const seen = new Set<string>()
+  const out: ReviewHunk[] = []
+  for (const hunk of hunks) {
+    const key = `${hunk.baseFrom}:${hunk.baseTo}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    out.push(hunk)
+  }
+  return out
 }
 
 function createInsertWidget(text: string): HTMLElement {
@@ -94,7 +135,7 @@ function createBadgeWidget(view: EditorView, session: ReviewSessionState): HTMLE
   const accept = document.createElement('button')
   accept.type = 'button'
   accept.className = 'review-badge-btn review-badge-accept'
-  accept.textContent = 'Accept'
+  accept.textContent = session.hunks.length > 1 ? `Accept all (${session.hunks.length})` : 'Accept'
   accept.disabled = session.streaming
   accept.addEventListener('mousedown', (e) => {
     e.preventDefault()
@@ -128,47 +169,64 @@ function createBadgeWidget(view: EditorView, session: ReviewSessionState): HTMLE
 }
 
 function buildDecorations(state: EditorState, session: ReviewSessionState): DecorationSet {
-  const { baseFrom, baseTo, baseText, proposedText } = session
   const decos: Decoration[] = []
+  const lastHunk = session.hunks[session.hunks.length - 1]
 
-  // Entire superseded span: red + strike-through (removed on Accept).
-  if (baseTo > baseFrom && baseText) {
-    decos.push(Decoration.inline(baseFrom, baseTo, { class: 'review-delete' }))
+  for (const [index, hunk] of session.hunks.entries()) {
+    const { baseFrom, baseTo, baseText, proposedText } = hunk
+
+    if (baseTo > baseFrom && baseText) {
+      decos.push(
+        Decoration.inline(baseFrom, baseTo, {
+          class: 'review-delete',
+        }),
+      )
+    }
+
+    if (proposedText) {
+      decos.push(
+        Decoration.widget(baseTo, () => createInsertWidget(proposedText), {
+          side: 1,
+          key: `ins-${session.id}-${index}-${proposedText.length}`,
+        }),
+      )
+    }
   }
 
-  // Proposed replacement shown as green insert preview.
-  if (proposedText) {
+  if (lastHunk) {
     decos.push(
-      Decoration.widget(baseTo, () => createInsertWidget(proposedText), {
+      Decoration.widget(lastHunk.baseTo, (view) => createBadgeWidget(view, session), {
         side: 1,
-        key: `ins-${session.id}-${proposedText.length}`,
+        key: `badge-${session.id}-${session.streaming}-${session.hunks.length}`,
       }),
     )
   }
-
-  decos.push(
-    Decoration.widget(baseTo, (view) => createBadgeWidget(view, session), {
-      side: 1,
-      key: `badge-${session.id}-${session.streaming}-${proposedText.length}`,
-    }),
-  )
 
   return DecorationSet.create(state.doc, decos)
 }
 
 function mapSession(tr: Transaction, session: ReviewSessionState): ReviewSessionState | null {
-  const baseFrom = tr.mapping.map(session.baseFrom, 1)
-  const baseTo = tr.mapping.map(session.baseTo, -1)
-  if (baseTo < baseFrom) return null
-  return { ...session, baseFrom, baseTo }
+  const hunks = session.hunks
+    .map((hunk) => {
+      const baseFrom = tr.mapping.map(hunk.baseFrom, 1)
+      const baseTo = tr.mapping.map(hunk.baseTo, -1)
+      if (baseTo < baseFrom) return null
+      return { ...hunk, baseFrom, baseTo }
+    })
+    .filter((hunk): hunk is ReviewHunk => hunk !== null)
+
+  if (hunks.length === 0) return null
+  return { ...session, hunks }
 }
 
 function transactionTouchesSession(tr: Transaction, session: ReviewSessionState): boolean {
   let touches = false
   tr.mapping.maps.forEach((map) => {
     map.forEach((oldStart, oldEnd) => {
-      if (oldStart < session.baseTo && oldEnd > session.baseFrom) {
-        touches = true
+      for (const hunk of session.hunks) {
+        if (oldStart < hunk.baseTo && oldEnd > hunk.baseFrom) {
+          touches = true
+        }
       }
     })
   })
@@ -185,14 +243,28 @@ export const InlineReview = Extension.create({
         ({ tr, dispatch }) => {
           const session = buildSession(
             newSessionId(),
-            options.from,
-            options.to,
-            options.baseText,
-            options.proposedText ?? '',
+            normalizeStartOptions(options),
             options.streaming ?? false,
           )
           if (dispatch) {
             dispatch(tr.setMeta(inlineReviewKey, { type: 'start', session } satisfies ReviewMeta))
+          }
+          return true
+        },
+
+      appendReviewHunks:
+        (hunks: ReviewHunkOptions[]) =>
+        ({ state, tr, dispatch }) => {
+          const existing = inlineReviewKey.getState(state)?.session
+          if (!existing || existing.streaming || hunks.length === 0) return false
+
+          const appended = hunks.map((hunk) =>
+            buildHunk(hunk.from, hunk.to, hunk.baseText, hunk.proposedText),
+          )
+          const merged = dedupeHunks([...existing.hunks, ...appended])
+          const session = buildSession(existing.id, merged, false)
+          if (dispatch) {
+            dispatch(tr.setMeta(inlineReviewKey, { type: 'append', session } satisfies ReviewMeta))
           }
           return true
         },
@@ -275,7 +347,7 @@ export const InlineReview = Extension.create({
               return { session: null, decorations: DecorationSet.empty }
             }
 
-            if (meta?.type === 'start') {
+            if (meta?.type === 'start' || meta?.type === 'append') {
               return {
                 session: meta.session,
                 decorations: buildDecorations(newState, meta.session),
@@ -283,19 +355,16 @@ export const InlineReview = Extension.create({
             }
 
             if (meta?.type === 'accept') {
-              // Keep session until appendTransaction commits + clears
               return value
             }
 
             let session = value.session
 
-            if (meta?.type === 'update' && session) {
+            if (meta?.type === 'update' && session?.hunks.length === 1) {
+              const hunk = session.hunks[0]!
               session = buildSession(
                 session.id,
-                session.baseFrom,
-                session.baseTo,
-                session.baseText,
-                meta.proposedText,
+                [buildHunk(hunk.baseFrom, hunk.baseTo, hunk.baseText, meta.proposedText)],
                 meta.streaming,
               )
             } else if (meta?.type === 'streaming' && session) {
@@ -341,10 +410,12 @@ export const InlineReview = Extension.create({
           if (!session) return null
 
           const tr = newState.tr
-          if (session.proposedText) {
-            tr.insertText(session.proposedText, session.baseFrom, session.baseTo)
-          } else if (session.baseTo > session.baseFrom) {
-            tr.delete(session.baseFrom, session.baseTo)
+          const sorted = [...session.hunks].sort((a, b) => b.baseFrom - a.baseFrom)
+          for (const hunk of sorted) {
+            const from = tr.mapping.map(hunk.baseFrom, 1)
+            const to = tr.mapping.map(hunk.baseTo, -1)
+            if (to < from && !hunk.proposedText) continue
+            applyReviewHunkToTransaction(tr, from, to, hunk.baseText, hunk.proposedText)
           }
           tr.setMeta(inlineReviewKey, { type: 'clear' } satisfies ReviewMeta)
           tr.setMeta('addToHistory', true)

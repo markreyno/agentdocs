@@ -97,11 +97,12 @@ export const streamGemini: ProviderStreamFn = async ({
     if (functionCalls.length === 0 || !executeTool) return
 
     contents.push({ role: 'model', parts: modelParts })
-    const responseParts: GeminiPart[] = functionCalls.map((fc) => {
+    const responseParts: GeminiPart[] = []
+    for (const fc of functionCalls) {
       onToolUse?.(fc.name, fc.args)
-      const result = executeTool(fc.name, fc.args)
-      return { functionResponse: { name: fc.name, response: { result } } }
-    })
+      const result = await Promise.resolve(executeTool(fc.name, fc.args))
+      responseParts.push({ functionResponse: { name: fc.name, response: { result } } })
+    }
     contents.push({ role: 'user', parts: responseParts })
   }
 }

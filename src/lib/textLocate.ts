@@ -28,9 +28,13 @@ function offsetToPos(doc: PMNode, offset: number): number {
  * Find `needle` in the document. Tries exact match, then whitespace-normalized,
  * then fuzzy match near the start of the needle.
  */
-export function locateTextInDoc(doc: PMNode, needle: string): DocRange | null {
+export function locateTextInDoc(doc: PMNode, needle: string, options?: { exactOnly?: boolean }): DocRange | null {
   const search = needle.trim()
   if (!search) return null
+
+  const headingOnly = locateHeadingMatches(doc, search)
+  if (headingOnly.length === 1) return headingOnly[0]!
+  if (headingOnly.length > 1) return headingOnly[0]!
 
   const end = doc.content.size
   const fullText = doc.textBetween(0, end, '\n')
@@ -44,13 +48,12 @@ export function locateTextInDoc(doc: PMNode, needle: string): DocRange | null {
     const normNeedle = normalizeWs(search)
     const normIdx = normFull.indexOf(normNeedle)
     if (normIdx >= 0) {
-      // Map normalized index back approximately via expanding whitespace walk
       idx = mapNormIndexToRaw(fullText, normIdx)
       len = mapNormIndexToRaw(fullText, normIdx + normNeedle.length) - idx
     }
   }
 
-  if (idx < 0) {
+  if (idx < 0 && !options?.exactOnly) {
     // Fuzzy: locate the beginning of the needle, then take needle-length window
     dmp.Match_Threshold = 0.45
     dmp.Match_Distance = Math.max(1000, fullText.length)
@@ -78,6 +81,154 @@ export function locateTextInDoc(doc: PMNode, needle: string): DocRange | null {
     to,
     text: doc.textBetween(from, to, '\n'),
   }
+}
+
+/** Find every non-overlapping match of `needle` in the document (case-insensitive). */
+export function locateAllTextInDoc(doc: PMNode, needle: string): DocRange[] {
+  const search = needle.trim()
+  if (!search) return []
+
+  const end = doc.content.size
+  const fullText = doc.textBetween(0, end, '\n')
+  if (!fullText) return []
+
+  const lower = fullText.toLowerCase()
+  const q = search.toLowerCase()
+  const ranges: DocRange[] = []
+  let idx = 0
+  while (idx < lower.length) {
+    const found = lower.indexOf(q, idx)
+    if (found < 0) break
+
+    const from = offsetToPos(doc, found)
+    const to = offsetToPos(doc, found + search.length)
+    if (to > from) {
+      ranges.push({
+        from,
+        to,
+        text: doc.textBetween(from, to, '\n'),
+      })
+    }
+    idx = found + q.length
+  }
+
+  return ranges
+}
+
+/** Every heading node as a document range (heading text only). */
+export function listHeadingRanges(doc: PMNode): DocRange[] {
+  const ranges: DocRange[] = []
+  doc.forEach((node, offset) => {
+    if (node.type.name !== 'heading') return
+    const from = offset + 1
+    const to = offset + node.nodeSize - 1
+    ranges.push({ from, to, text: doc.textBetween(from, to, '\n') })
+  })
+  return ranges
+}
+
+/** Exact (case-insensitive) heading title matches — never matches body text. */
+export function locateHeadingMatches(doc: PMNode, needle: string): DocRange[] {
+  const q = needle.trim().toLowerCase()
+  if (!q) return []
+  return listHeadingRanges(doc).filter((range) => range.text.trim().toLowerCase() === q)
+}
+
+/** True for short multi-word titles like "The Garden's Secret". */
+export function isLikelyTitlePhrase(text: string): boolean {
+  const t = text.trim()
+  if (t.length < 4 || t.length > 100) return false
+  if (/\w['\u2019]s\b/.test(t) || /^the\s+/i.test(t)) return true
+  const words = t.split(/\s+/).filter(Boolean)
+  return words.length >= 2 && words.length <= 12 && /^[A-Z0-9"']/.test(t)
+}
+
+export function rangesOverlap(
+  a: { from: number; to: number },
+  b: { from: number; to: number },
+): boolean {
+  return a.from < b.to && b.from < a.to
+}
+
+/**
+ * Find every sentence that contains `query` as a substring (case-insensitive).
+ * Aligns with search_sentences in the doc tree — use for replace_all edits.
+ */
+export function locateAllSentencesContaining(doc: PMNode, query: string): DocRange[] {
+  const wordMatches = locateAllTextInDoc(doc, query)
+  if (wordMatches.length === 0) return []
+
+  const sentences = wordMatches.map((match) => expandRangeToSentence(doc, match.from, match.to))
+  return mergeOverlappingRanges(sentences).map((range) => ({
+    from: range.from,
+    to: range.to,
+    text: doc.textBetween(range.from, range.to, '\n'),
+  }))
+}
+
+/** Expand a document range to the containing sentence (between newlines or string bounds). */
+export function expandRangeToSentence(doc: PMNode, from: number, to: number): DocRange {
+  const end = doc.content.size
+  const fullText = doc.textBetween(0, end, '\n')
+  if (!fullText) return { from, to, text: doc.textBetween(from, to, '\n') }
+
+  const startOffset = charOffsetAtPos(doc, from)
+  const endOffset = charOffsetAtPos(doc, to)
+  const bounds = sentenceBounds(fullText, startOffset, endOffset)
+  const expandedFrom = offsetToPos(doc, bounds.start)
+  const expandedTo = offsetToPos(doc, bounds.end)
+
+  return {
+    from: expandedFrom,
+    to: expandedTo,
+    text: doc.textBetween(expandedFrom, expandedTo, '\n'),
+  }
+}
+
+/** Merge ranges that overlap after expansion so each passage is edited once. */
+export function mergeOverlappingRanges(ranges: DocRange[]): DocRange[] {
+  if (ranges.length <= 1) return ranges
+
+  const sorted = [...ranges].sort((a, b) => a.from - b.from || a.to - b.to)
+  const merged: DocRange[] = []
+  let current = sorted[0]!
+
+  for (let i = 1; i < sorted.length; i++) {
+    const next = sorted[i]!
+    if (next.from <= current.to) {
+      current = {
+        from: current.from,
+        to: Math.max(current.to, next.to),
+        text: current.text,
+      }
+      continue
+    }
+    merged.push(current)
+    current = next
+  }
+
+  merged.push(current)
+  return merged
+}
+
+function charOffsetAtPos(doc: PMNode, pos: number): number {
+  const end = doc.content.size
+  const { positions } = buildPosMap(doc, 0, end, '\n')
+  const clamped = Math.max(0, Math.min(pos, end))
+  for (let i = 0; i < positions.length; i++) {
+    if (positions[i]! >= clamped) return i
+  }
+  return positions.length
+}
+
+function sentenceBounds(text: string, startOffset: number, endOffset: number): { start: number; end: number } {
+  let start = Math.max(0, Math.min(startOffset, text.length))
+  let end = Math.max(start, Math.min(endOffset, text.length))
+
+  while (start > 0 && text[start - 1] !== '\n') start--
+  while (end < text.length && text[end] !== '\n') end++
+
+  return { start, end }
 }
 
 function mapNormIndexToRaw(raw: string, normIndex: number): number {

@@ -8,7 +8,7 @@ import AgentSidebar from './AgentSidebar'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 import DownloadModal from './DownloadModal'
 import { isDesktopApp } from './lib/isDesktop'
-import { isDemoLimitReached } from './lib/demoUsage'
+import { isDemoLimitReached, syncDemoUsageWithServer } from './lib/demoUsage'
 import {
   getDocument,
   saveDocument,
@@ -69,6 +69,19 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     setAgentLocked(true)
     setShowDownloadModal(true)
   }, [])
+
+  // The cached "limit reached" state above may be stale (e.g. the API server
+  // restarted since the last visit, resetting its usage counter). Reconcile
+  // with the server once on mount so a stale local cache can't lock the demo
+  // out permanently.
+  useEffect(() => {
+    if (!isWebDemo) return
+    syncDemoUsageWithServer().then(() => {
+      const stillReached = isDemoLimitReached()
+      setAgentLocked(stillReached)
+      setShowDownloadModal(stillReached)
+    })
+  }, [isWebDemo])
 
   const handleKeepBrowsing = useCallback(() => {
     setShowDownloadModal(false)
