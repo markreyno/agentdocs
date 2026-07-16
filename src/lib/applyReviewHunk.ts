@@ -55,10 +55,10 @@ function mapOffset(
   tr: Transaction,
   positions: number[],
   offset: number,
-  rangeFrom: number,
+  endPos: number,
   bias: -1 | 1,
 ): number {
-  return tr.mapping.map(posAtOffset(positions, offset, rangeFrom), bias)
+  return tr.mapping.map(posAtOffset(positions, offset, endPos), bias)
 }
 
 /**
@@ -103,11 +103,11 @@ export function applyReviewHunkToTransaction(
 
   for (const patch of patches) {
     if (patch.kind === 'delete') {
-      const delFrom = mapOffset(tr, positions, patch.from, rangeFrom, 1)
-      const delTo = mapOffset(tr, positions, patch.to, rangeFrom, -1)
+      const delFrom = mapOffset(tr, positions, patch.from, rangeTo, 1)
+      const delTo = mapOffset(tr, positions, patch.to, rangeTo, -1)
       if (delTo > delFrom) tr.delete(delFrom, delTo)
     } else if (patch.text) {
-      const insertPos = mapOffset(tr, positions, patch.at, rangeFrom, 1)
+      const insertPos = mapOffset(tr, positions, patch.at, rangeTo, 1)
       const marks = tr.doc.resolve(insertPos).marks()
       tr.insert(insertPos, tr.doc.type.schema.text(patch.text, marks))
     }

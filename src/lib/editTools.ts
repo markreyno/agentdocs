@@ -102,7 +102,14 @@ function resolveFindRanges(
   const sentenceMatches = locateAllSentencesContaining(doc, find)
   if (sentenceMatches.length > 0) {
     const useAll = wantsReplaceAll(find, sentenceMatches.length, replace, replaceAll)
-    return { ranges: useAll ? sentenceMatches : [sentenceMatches[0]!], useAll }
+    // A plain single-token find (e.g. a character's name) replaced everywhere is a
+    // literal find-and-replace, not a sentence rewrite. Falling through to word-level
+    // ranges below keeps the rest of each sentence untouched. Sentence-level ranges are
+    // still used for a single match (smoothing one passage) or a multi-word phrase find,
+    // where operating on the whole sentence is the intended behavior.
+    if (!useAll || !/^\S+$/.test(find)) {
+      return { ranges: useAll ? sentenceMatches : [sentenceMatches[0]!], useAll }
+    }
   }
 
   const wordMatches = locateAllTextInDoc(doc, find)
