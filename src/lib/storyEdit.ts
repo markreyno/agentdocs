@@ -2,6 +2,7 @@ import type { Editor } from '@tiptap/react'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { DocNode } from './docTree'
 import type { ReplaceHunk, ReplaceTextResult } from './editTools'
+import { getActiveReview } from '../extensions/InlineReview'
 
 export type StoryBlockKind = 'heading' | 'paragraph'
 
@@ -292,6 +293,21 @@ export function proposeReplaceStoryInTree(tree: DocNode, input: ReplaceStoryInpu
 export function applyReplaceStoryInEditor(editor: Editor, input: ReplaceStoryInput): ReplaceTextResult {
   const result = resolveReplaceStoryInEditor(editor, input)
   if (result.status !== 'proposed') return result
+
+  const existing = getActiveReview(editor.state)
+  if (
+    existing &&
+    !existing.streaming &&
+    existing.hunks.length === result.hunks.length &&
+    existing.hunks.every(
+      (hunk, i) =>
+        hunk.baseFrom === result.hunks[i]!.from &&
+        hunk.baseTo === result.hunks[i]!.to &&
+        hunk.proposedText === result.hunks[i]!.replace,
+    )
+  ) {
+    return result
+  }
 
   editor.commands.rejectReview()
 

@@ -213,7 +213,13 @@ export function resolveReplaceInEditor(
   }
 
   if (!find) {
-    return { status: 'error', message: 'find is required when no text is selected in the editor' }
+    return {
+      status: 'error',
+      message:
+        'find is required when no text is selected in the editor. ' +
+        'For a rename, call replace_text with find, replace, and replace_all: true ' +
+        '(example: find "Boby", replace "Toby", replace_all true).',
+    }
   }
 
   const { ranges, error } = resolveFindRanges(editor.state.doc, find, replace, input.replace_all)
@@ -241,6 +247,19 @@ export function resolveReplaceInEditor(
   }
 }
 
+function sameProposedHunks(
+  existing: NonNullable<ReturnType<typeof getActiveReview>>,
+  hunks: ReplaceHunk[],
+): boolean {
+  if (existing.hunks.length !== hunks.length) return false
+  return existing.hunks.every(
+    (hunk, i) =>
+      hunk.baseFrom === hunks[i]!.from &&
+      hunk.baseTo === hunks[i]!.to &&
+      hunk.proposedText === hunks[i]!.replace,
+  )
+}
+
 /** Open an inline review for a replace_text tool call. Appends hunks when a review is already open. */
 export function applyReplaceInEditor(
   editor: Editor,
@@ -252,6 +271,12 @@ export function applyReplaceInEditor(
   if (result.status !== 'proposed') return result
 
   const existing = getActiveReview(editor.state)
+  // Desktop fires both onToolUse and executeRendererTool; treat a matching open
+  // review as success so the second call does not error as an overlap.
+  if (existing && !existing.streaming && sameProposedHunks(existing, result.hunks)) {
+    return result
+  }
+
   if (existing && !existing.streaming) {
     for (const newHunk of result.hunks) {
       for (const oldHunk of existing.hunks) {

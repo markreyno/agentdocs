@@ -28,7 +28,13 @@ function proposeReplaceInTree(tree: DocNode, input: Record<string, unknown>) {
 
   const find = String(input.find ?? '').trim()
   if (!find) {
-    return { status: 'error', message: 'find is required when no editor selection is active' }
+    return {
+      status: 'error',
+      message:
+        'find is required when no editor selection is active. ' +
+        'For a rename, call replace_text with find, replace, and replace_all: true ' +
+        '(example: find "Boby", replace "Toby", replace_all true).',
+    }
   }
 
   if (isLikelyTitlePhrase(find)) {
@@ -128,20 +134,23 @@ export const DOC_TOOLS = [
   {
     name: 'replace_text',
     description:
-      'Propose replacing text within a single paragraph. Blocked for chapter headings (use replace_story) ' +
-      'and blocked when overlapping an in-progress review. When the user has selected text, omit find.',
+      'Propose replacing manuscript text and open an inline review. ' +
+      'For a rename or global swap (e.g. Boby → Toby), you MUST pass find (the old text), replace (the new text), ' +
+      'and replace_all: true. Only omit find when the user has an active editor selection — then replace is the full new selection text. ' +
+      'Blocked for chapter headings (use replace_story) and blocked when overlapping an in-progress review.',
     input_schema: {
       type: 'object' as const,
       properties: {
         find: {
           type: 'string',
-          description: 'Passage to replace. Omit when the user has an active editor selection.',
+          description:
+            'Exact text to find and replace. Required for manuscript-wide edits when nothing is selected.',
         },
-        replace: { type: 'string', description: 'The new passage text' },
+        replace: { type: 'string', description: 'The new text' },
         replace_all: {
           type: 'boolean',
           description:
-            'Replace every occurrence of find in the manuscript. Use for renames and wholesale setting/motif changes (e.g. garden → cafe). Defaults to true for single-token finds.',
+            'Replace every occurrence of find. Required true for renames (e.g. Boby → Toby). Defaults to true for single-token finds.',
         },
       },
       required: ['replace'],

@@ -5,6 +5,7 @@ import type { ChatMessage } from './lib/chatClient'
 import { withDocumentContext } from './lib/documentContext'
 import { applyReplaceInEditor, executeRendererDocTool, type ReplaceTextInput } from './lib/editTools'
 import { applyReplaceStoryInEditor, type ReplaceStoryInput } from './lib/storyEdit'
+import { parseDumpedToolCall } from './lib/parseDumpedToolCall'
 import {
   DEMO_USAGE_LIMIT,
   getRemainingDemoUses,
@@ -99,6 +100,7 @@ export default function AgentSidebar({
   const [newSkillDescription, setNewSkillDescription] = useState('')
   const [newSkillTemplate, setNewSkillTemplate] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const assistantDraftRef = useRef('')
 
   if (!open) return null
 
@@ -114,13 +116,30 @@ export default function AgentSidebar({
   }
 
   function trackReplaceTextReview(input: unknown) {
-    if (!editor) return
-    applyReplaceInEditor(editor, input as ReplaceTextInput, getSelectionRange(editor), false)
+    if (!editor) {
+      setErrorText('Could not open edit review: editor is not available.')
+      return
+    }
+    const result = applyReplaceInEditor(
+      editor,
+      input as ReplaceTextInput,
+      getSelectionRange(editor),
+      false,
+    )
+    if (result.status !== 'proposed') {
+      setErrorText(result.message)
+    }
   }
 
   function trackReplaceStoryReview(input: unknown) {
-    if (!editor) return
-    applyReplaceStoryInEditor(editor, input as ReplaceStoryInput)
+    if (!editor) {
+      setErrorText('Could not open edit review: editor is not available.')
+      return
+    }
+    const result = applyReplaceStoryInEditor(editor, input as ReplaceStoryInput)
+    if (result.status !== 'proposed') {
+      setErrorText(result.message)
+    }
   }
 
   async function handleSend(e: FormEvent) {
@@ -156,6 +175,7 @@ export default function AgentSidebar({
     setMessages([...nextMessages, { role: 'assistant', content: '' }])
     setInput('')
     setLoading(true)
+    assistantDraftRef.current = ''
     editor?.commands.rejectReview()
 
     const apiMessages: ChatMessage[] = nextMessages.map((m) => ({ role: m.role, content: m.content }))
@@ -165,6 +185,7 @@ export default function AgentSidebar({
       {
         onDelta: (delta) => {
           setToolStatus(null)
+          assistantDraftRef.current += delta
           setMessages((prev) => {
             const updated = [...prev]
             const last = updated[updated.length - 1]
@@ -174,14 +195,44 @@ export default function AgentSidebar({
         },
         onToolUse: (name, input) => {
           setToolStatus(formatToolStatus(name, input))
-          if (!isDesktopApp() && name === 'replace_text') {
+          // Open the inline review as soon as the model calls an edit tool.
+          // Desktop also applies via executeRendererTool; applyReplaceInEditor is idempotent.
+          if (name === 'replace_text') {
             trackReplaceTextReview(input)
           }
-          if (!isDesktopApp() && name === 'replace_story') {
+          if (name === 'replace_story') {
             trackReplaceStoryReview(input)
           }
         },
         onDone: () => {
+          const dumped = parseDumpedToolCall(assistantDraftRef.current)
+          if (dumped?.name === 'replace_text') {
+            trackReplaceTextReview(dumped.arguments)
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: 'Proposed an edit for review in the document.',
+                }
+              }
+              return updated
+            })
+          } else if (dumped?.name === 'replace_story') {
+            trackReplaceStoryReview(dumped.arguments)
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: 'Proposed an edit for review in the document.',
+                }
+              }
+              return updated
+            })
+          }
           editor?.commands.setReviewStreaming(false)
           setToolStatus(null)
           setLoading(false)
