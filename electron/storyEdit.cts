@@ -196,3 +196,101 @@ export function proposeReplaceStoryInTree(tree: DocNode, input: ReplaceStoryInpu
       'Scene breaks preserved; headings and paragraphs are separate non-overlapping blocks.',
   }
 }
+
+export interface InsertBlockSpec {
+  kind: StoryBlockKind
+  text: string
+  level?: number
+}
+
+export interface InsertBlocksInput {
+  after_index: number
+  blocks: InsertBlockSpec[]
+}
+
+type InsertBlocksResult =
+  | {
+      status: 'applied'
+      after_index: number
+      inserted: number
+      from: number
+      to: number
+      message: string
+    }
+  | { status: 'error'; message: string }
+
+function normalizeInsertSpecs(raw: unknown): InsertBlockSpec[] | { error: string } {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { error: 'blocks must be a non-empty array of { kind, text }' }
+  }
+
+  const specs: InsertBlockSpec[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return { error: 'Each block must be an object with kind ("heading" | "paragraph") and text' }
+    }
+    const obj = entry as Record<string, unknown>
+    const kind = obj.kind
+    if (kind !== 'heading' && kind !== 'paragraph') {
+      return { error: 'kind must be "heading" or "paragraph"' }
+    }
+    const text = String(obj.text ?? '').trim()
+    if (!text) {
+      return { error: 'block text is required' }
+    }
+    const level =
+      kind === 'heading'
+        ? typeof obj.level === 'number' && obj.level >= 1 && obj.level <= 3
+          ? obj.level
+          : 1
+        : undefined
+    specs.push({ kind, text, ...(level != null ? { level } : {}) })
+  }
+  return specs
+}
+
+export function proposeInsertBlocksInTree(tree: DocNode, input: InsertBlocksInput): InsertBlocksResult {
+  const infos = getStoryBlocksFromTree(tree)
+  const specs = normalizeInsertSpecs(input.blocks)
+  if (!Array.isArray(specs)) {
+    return { status: 'error', message: specs.error }
+  }
+
+  const afterIndex = Number(input.after_index)
+  if (!Number.isInteger(afterIndex)) {
+    return { status: 'error', message: 'after_index must be an integer (-1 to insert at the start)' }
+  }
+  if (afterIndex !== -1) {
+    if (infos.length === 0) {
+      return {
+        status: 'error',
+        message: 'Document has no blocks; use after_index: -1 to insert at the start',
+      }
+    }
+    if (!infos[afterIndex]) {
+      return {
+        status: 'error',
+        message:
+          `Invalid after_index ${afterIndex}; document has ${infos.length} blocks ` +
+          `(indices 0–${infos.length - 1}), or use -1 for start`,
+      }
+    }
+  }
+
+  const headingCount = specs.filter((s) => s.kind === 'heading').length
+  const paragraphCount = specs.filter((s) => s.kind === 'paragraph').length
+  const parts: string[] = []
+  if (headingCount) parts.push(`${headingCount} heading${headingCount === 1 ? '' : 's'}`)
+  if (paragraphCount) parts.push(`${paragraphCount} paragraph${paragraphCount === 1 ? '' : 's'}`)
+  const where =
+    afterIndex === -1 ? 'at the start of the document' : `after block index ${afterIndex}`
+
+  return {
+    status: 'applied',
+    after_index: afterIndex,
+    inserted: specs.length,
+    from: 0,
+    to: 0,
+    message: `Inserted ${parts.join(' and ')} ${where}. Author can Undo to reverse.`,
+  }
+}

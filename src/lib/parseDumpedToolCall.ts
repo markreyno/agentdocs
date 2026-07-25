@@ -1,5 +1,5 @@
 /** Tool names the agent may dump as JSON text instead of structured tool_calls. */
-const RECOVERABLE_EDIT_TOOLS = new Set(['replace_text', 'replace_story'])
+const RECOVERABLE_EDIT_TOOLS = new Set(['replace_text', 'replace_story', 'insert_blocks'])
 
 export type DumpedToolCall = {
   name: string

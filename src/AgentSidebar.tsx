@@ -4,7 +4,12 @@ import { sendChatMessage } from './lib/agentChat'
 import type { ChatMessage } from './lib/chatClient'
 import { withDocumentContext } from './lib/documentContext'
 import { applyReplaceInEditor, executeRendererDocTool, type ReplaceTextInput } from './lib/editTools'
-import { applyReplaceStoryInEditor, type ReplaceStoryInput } from './lib/storyEdit'
+import {
+  applyInsertBlocksInEditor,
+  applyReplaceStoryInEditor,
+  type InsertBlocksInput,
+  type ReplaceStoryInput,
+} from './lib/storyEdit'
 import { parseDumpedToolCall } from './lib/parseDumpedToolCall'
 import {
   DEMO_USAGE_LIMIT,
@@ -60,6 +65,10 @@ function formatToolStatus(name: string, input: unknown): string {
       (input as { paragraphs?: unknown[] })?.paragraphs?.length ??
       0
     return `Proposing consolidated story edit (${count} block${count === 1 ? '' : 's'})…`
+  }
+  if (name === 'insert_blocks') {
+    const count = (input as { blocks?: unknown[] })?.blocks?.length ?? 0
+    return `Inserting ${count} new block${count === 1 ? '' : 's'}…`
   }
   if (name === 'get_story_blocks') {
     return 'Reading story structure…'
@@ -142,6 +151,17 @@ export default function AgentSidebar({
     }
   }
 
+  function trackInsertBlocks(input: unknown) {
+    if (!editor) {
+      setErrorText('Could not insert blocks: editor is not available.')
+      return
+    }
+    const result = applyInsertBlocksInEditor(editor, input as InsertBlocksInput)
+    if (result.status !== 'applied') {
+      setErrorText(result.message)
+    }
+  }
+
   async function handleSend(e: FormEvent) {
     e.preventDefault()
     const raw = input.trim()
@@ -197,11 +217,15 @@ export default function AgentSidebar({
           setToolStatus(formatToolStatus(name, input))
           // Open the inline review as soon as the model calls an edit tool.
           // Desktop also applies via executeRendererTool; applyReplaceInEditor is idempotent.
+          // insert_blocks is not idempotent — apply on web here; desktop uses executeRendererTool only.
           if (name === 'replace_text') {
             trackReplaceTextReview(input)
           }
           if (name === 'replace_story') {
             trackReplaceStoryReview(input)
+          }
+          if (name === 'insert_blocks' && !isDesktopApp()) {
+            trackInsertBlocks(input)
           }
         },
         onDone: () => {
@@ -228,6 +252,19 @@ export default function AgentSidebar({
                 updated[updated.length - 1] = {
                   ...last,
                   content: 'Proposed an edit for review in the document.',
+                }
+              }
+              return updated
+            })
+          } else if (dumped?.name === 'insert_blocks') {
+            trackInsertBlocks(dumped.arguments)
+            setMessages((prev) => {
+              const updated = [...prev]
+              const last = updated[updated.length - 1]
+              if (last?.role === 'assistant') {
+                updated[updated.length - 1] = {
+                  ...last,
+                  content: 'Inserted new content into the document.',
                 }
               }
               return updated

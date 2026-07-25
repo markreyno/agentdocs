@@ -13,7 +13,9 @@ import {
 import { searchSentences, type DocNode } from './docTree'
 import { getActiveReview } from '../extensions/InlineReview'
 import {
+  applyInsertBlocksInEditor,
   applyReplaceStoryInEditor,
+  type InsertBlocksInput,
   type ReplaceStoryInput,
 } from './storyEdit'
 
@@ -50,7 +52,7 @@ export type ReplaceTextResult =
   | { status: 'not_found'; message: string }
   | { status: 'error'; message: string }
 
-export const RENDERER_DOC_TOOLS = ['replace_text', 'replace_story'] as const
+export const RENDERER_DOC_TOOLS = ['replace_text', 'replace_story', 'insert_blocks'] as const
 export type RendererDocToolName = (typeof RENDERER_DOC_TOOLS)[number]
 
 export function isRendererDocTool(name: string): name is RendererDocToolName {
@@ -359,6 +361,10 @@ export async function executeRendererDocTool(
   if (name === 'replace_story') {
     if (!editor) return { status: 'error', message: 'No editor available' }
     return applyReplaceStoryInEditor(editor, input as unknown as ReplaceStoryInput)
+  }
+  if (name === 'insert_blocks') {
+    if (!editor) return { status: 'error', message: 'No editor available' }
+    return applyInsertBlocksInEditor(editor, input as unknown as InsertBlocksInput)
   }
   return { error: `Unknown renderer tool "${name}"` }
 }
