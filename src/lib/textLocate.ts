@@ -140,7 +140,13 @@ export function isLikelyTitlePhrase(text: string): boolean {
   if (t.length < 4 || t.length > 100) return false
   if (/\w['\u2019]s\b/.test(t) || /^the\s+/i.test(t)) return true
   const words = t.split(/\s+/).filter(Boolean)
-  return words.length >= 2 && words.length <= 12 && /^[A-Z0-9"']/.test(t)
+  if (words.length < 2 || words.length > 12 || !/^[A-Z0-9"']/.test(t)) return false
+  // Require title case on most content words so body phrases like "Blueberry jam"
+  // are not mistaken for chapter headings.
+  const contentWords = words.filter((w) => !/^(a|an|the|of|at|in|on|to|for|and|or)$/i.test(w))
+  if (contentWords.length === 0) return false
+  const capitalized = contentWords.filter((w) => /^[A-Z0-9"']/.test(w))
+  return capitalized.length >= Math.ceil(contentWords.length * 0.6)
 }
 
 export function rangesOverlap(

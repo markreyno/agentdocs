@@ -15,11 +15,13 @@ function truncate(s: string, max = 80): string {
 function isLikelyTitlePhrase(text: string): boolean {
   const t = text.trim()
   if (t.length < 4 || t.length > 100) return false
-  const words = t.split(/\s+/).filter(Boolean)
-  if (words.length < 2 || words.length > 12) return false
-  if (!/^[A-Z0-9"']/.test(t)) return false
   if (/\w['\u2019]s\b/.test(t) || /^the\s+/i.test(t)) return true
-  return words.length <= 8
+  const words = t.split(/\s+/).filter(Boolean)
+  if (words.length < 2 || words.length > 12 || !/^[A-Z0-9"']/.test(t)) return false
+  const contentWords = words.filter((w) => !/^(a|an|the|of|at|in|on|to|for|and|or)$/i.test(w))
+  if (contentWords.length === 0) return false
+  const capitalized = contentWords.filter((w) => /^[A-Z0-9"']/.test(w))
+  return capitalized.length >= Math.ceil(contentWords.length * 0.6)
 }
 
 function proposeReplaceInTree(tree: DocNode, input: Record<string, unknown>) {

@@ -4,6 +4,7 @@ import {
   isLikelyTitlePhrase,
   locateAllSentencesContaining,
   locateAllTextInDoc,
+  locateHeadingMatches,
   locateTextInDoc,
   mergeOverlappingRanges,
   rangesOverlap,
@@ -69,9 +70,14 @@ function wantsReplaceAll(
   return replace.trim().length > find.length + 12
 }
 
+/** True when replace looks like a rewrite of a larger span, not a same-size phrase swap. */
+function looksLikePassageRewrite(find: string, replace: string): boolean {
+  return replace.trim().length > find.trim().length + 12
+}
+
 function shouldExpandWordMatchToSentence(find: string, replace: string, useAll: boolean): boolean {
   if (!useAll || !/^\S+$/.test(find)) return false
-  return replace.trim().length > find.length + 12
+  return looksLikePassageRewrite(find, replace)
 }
 
 function buildHunksFromRanges(ranges: DocRange[], replace: string): ReplaceHunk[] {
@@ -89,12 +95,14 @@ function resolveFindRanges(
   replace: string,
   replaceAll?: boolean,
 ): { ranges: DocRange[]; useAll: boolean; error?: string } {
-  if (isLikelyTitlePhrase(find)) {
+  // Only block when find is an actual heading title — capitalized body phrases like
+  // "Blueberry jam" must still go through replace_text.
+  if (locateHeadingMatches(doc, find).length > 0) {
     return {
       ranges: [],
       useAll: false,
       error:
-        `find looks like a chapter heading ("${truncate(find)}"). replace_text cannot rename headings. ` +
+        `find matches a chapter heading ("${truncate(find)}"). replace_text cannot rename headings. ` +
         'Call get_story_blocks, then replace_story with { index, replace } for the heading and paragraphs together in one pass.',
     }
   }
@@ -104,10 +112,14 @@ function resolveFindRanges(
     const useAll = wantsReplaceAll(find, sentenceMatches.length, replace, replaceAll)
     // A plain single-token find (e.g. a character's name) replaced everywhere is a
     // literal find-and-replace, not a sentence rewrite. Falling through to word-level
-    // ranges below keeps the rest of each sentence untouched. Sentence-level ranges are
-    // still used for a single match (smoothing one passage) or a multi-word phrase find,
-    // where operating on the whole sentence is the intended behavior.
-    if (!useAll || !/^\S+$/.test(find)) {
+    // ranges below keeps the rest of each sentence untouched.
+    //
+    // Multi-word finds used to always expand to the containing paragraph, which wiped
+    // surrounding text on phrase swaps like "Blueberry jam" → "strawberry jam". Expand
+    // to the passage only when replace looks like a rewrite of a larger span.
+    const expandToPassage =
+      looksLikePassageRewrite(find, replace) && (!useAll || !/^\S+$/.test(find))
+    if (expandToPassage) {
       return { ranges: useAll ? sentenceMatches : [sentenceMatches[0]!], useAll }
     }
   }
