@@ -6,7 +6,7 @@ export const PAGE_MARGIN_PX = 96
 /** Visual gap between stacked page sheets. */
 export const PAGE_GAP_PX = 24
 /** Extra space under the page header band before body text. */
-export const PAGE_HEADER_CONTENT_GAP_PX = 8
+export const PAGE_HEADER_CONTENT_GAP_PX = 12
 
 export function canvasColorForTheme(theme: 'light' | 'dark') {
   return theme === 'dark' ? '#1a1b22' : '#f3f4f6'
