@@ -55,6 +55,7 @@ describe('isLikelyTitlePhrase / rangesOverlap / mergeOverlappingRanges', () => {
   it('detects short title-like phrases', () => {
     expect(isLikelyTitlePhrase("The Garden's Secret")).toBe(true)
     expect(isLikelyTitlePhrase('Midnight at the Lake')).toBe(true)
+    expect(isLikelyTitlePhrase('Blueberry jam')).toBe(false)
     expect(isLikelyTitlePhrase('Hi')).toBe(false)
     expect(isLikelyTitlePhrase('a')).toBe(false)
   })

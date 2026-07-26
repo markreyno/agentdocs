@@ -1,4 +1,5 @@
 import type { Editor } from '@tiptap/react'
+import type { JSONContent } from '@tiptap/core'
 import type { Node as PMNode } from '@tiptap/pm/model'
 import type { DocNode } from './docTree'
 import type { ReplaceHunk, ReplaceTextResult } from './editTools'
@@ -338,4 +339,189 @@ export function listEditableBlocks(doc: PMNode) {
       to: b.to,
       text: b.text,
     }))
+}
+
+export interface InsertBlockSpec {
+  kind: StoryBlockKind
+  text: string
+  /** Heading level when kind is "heading" (defaults to 1). */
+  level?: number
+}
+
+export interface InsertBlocksInput {
+  /**
+   * Insert after this get_story_blocks index.
+   * Use -1 to insert at the start of the document.
+   */
+  after_index: number
+  blocks: InsertBlockSpec[]
+}
+
+export type InsertBlocksResult =
+  | {
+      status: 'applied'
+      after_index: number
+      inserted: number
+      from: number
+      to: number
+      message: string
+    }
+  | { status: 'error'; message: string }
+
+function normalizeInsertSpecs(raw: unknown): InsertBlockSpec[] | { error: string } {
+  if (!Array.isArray(raw) || raw.length === 0) {
+    return { error: 'blocks must be a non-empty array of { kind, text }' }
+  }
+
+  const specs: InsertBlockSpec[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return { error: 'Each block must be an object with kind ("heading" | "paragraph") and text' }
+    }
+    const obj = entry as Record<string, unknown>
+    const kind = obj.kind
+    if (kind !== 'heading' && kind !== 'paragraph') {
+      return { error: 'kind must be "heading" or "paragraph"' }
+    }
+    const text = String(obj.text ?? '').trim()
+    if (!text) {
+      return { error: 'block text is required' }
+    }
+    const level =
+      kind === 'heading'
+        ? typeof obj.level === 'number' && obj.level >= 1 && obj.level <= 3
+          ? obj.level
+          : 1
+        : undefined
+    specs.push({ kind, text, ...(level != null ? { level } : {}) })
+  }
+  return specs
+}
+
+/** Document position immediately after the given story block, or 0 for after_index -1. */
+export function insertPosAfterIndex(
+  blocks: { from: number; to: number }[],
+  afterIndex: number,
+): number | { error: string } {
+  if (!Number.isInteger(afterIndex)) {
+    return { error: 'after_index must be an integer (-1 to insert at the start)' }
+  }
+  if (afterIndex === -1) return 0
+  if (blocks.length === 0) {
+    return { error: 'Document has no blocks; use after_index: -1 to insert at the start' }
+  }
+  const block = blocks[afterIndex]
+  if (!block) {
+    return {
+      error:
+        `Invalid after_index ${afterIndex}; document has ${blocks.length} blocks ` +
+        `(indices 0–${blocks.length - 1}), or use -1 for start`,
+    }
+  }
+  // block.to is the last content position inside the node; +1 is after the node.
+  return block.to + 1
+}
+
+export function insertSpecsToJSON(specs: InsertBlockSpec[]): JSONContent[] {
+  return specs.map((spec) => {
+    if (spec.kind === 'heading') {
+      return {
+        type: 'heading',
+        attrs: { level: spec.level ?? 1 },
+        content: [{ type: 'text', text: spec.text }],
+      }
+    }
+    return {
+      type: 'paragraph',
+      content: [{ type: 'text', text: spec.text }],
+    }
+  })
+}
+
+function describeInsert(specs: InsertBlockSpec[], afterIndex: number): string {
+  const headingCount = specs.filter((s) => s.kind === 'heading').length
+  const paragraphCount = specs.filter((s) => s.kind === 'paragraph').length
+  const parts: string[] = []
+  if (headingCount) parts.push(`${headingCount} heading${headingCount === 1 ? '' : 's'}`)
+  if (paragraphCount) parts.push(`${paragraphCount} paragraph${paragraphCount === 1 ? '' : 's'}`)
+  const where =
+    afterIndex === -1 ? 'at the start of the document' : `after block index ${afterIndex}`
+  return `Inserted ${parts.join(' and ')} ${where}. Author can Undo to reverse.`
+}
+
+function resolveInsertBlocks(
+  blocks: EditableStoryBlock[],
+  input: InsertBlocksInput,
+):
+  | { specs: InsertBlockSpec[]; afterIndex: number; pos: number }
+  | { error: string } {
+  const specs = normalizeInsertSpecs(input.blocks)
+  if (!Array.isArray(specs)) return specs
+
+  const afterIndex = Number(input.after_index)
+  const pos = insertPosAfterIndex(blocks, afterIndex)
+  if (typeof pos !== 'number') return pos
+
+  return { specs, afterIndex, pos }
+}
+
+/** Tree-only validation for the web/desktop tool loop when no live editor is available. */
+export function proposeInsertBlocksInTree(tree: DocNode, input: InsertBlocksInput): InsertBlocksResult {
+  const infos = getStoryBlocksFromTree(tree)
+  const pseudoBlocks: EditableStoryBlock[] = infos.map((info) => ({
+    index: info.index,
+    kind: info.kind,
+    from: 0,
+    to: 0,
+    text: info.text,
+    level: info.level,
+  }))
+  const resolved = resolveInsertBlocks(pseudoBlocks, input)
+  if ('error' in resolved) {
+    return { status: 'error', message: resolved.error }
+  }
+  return {
+    status: 'applied',
+    after_index: resolved.afterIndex,
+    inserted: resolved.specs.length,
+    from: 0,
+    to: 0,
+    message: describeInsert(resolved.specs, resolved.afterIndex),
+  }
+}
+
+/** Insert new heading/paragraph nodes into the live editor (applies immediately). */
+export function applyInsertBlocksInEditor(editor: Editor, input: InsertBlocksInput): InsertBlocksResult {
+  const blocks = listEditableStoryBlocks(editor.state.doc)
+  const resolved = resolveInsertBlocks(blocks, input)
+  if ('error' in resolved) {
+    return { status: 'error', message: resolved.error }
+  }
+
+  const { specs, afterIndex, pos } = resolved
+  const content = insertSpecsToJSON(specs)
+
+  editor.commands.rejectReview()
+
+  const ok = editor
+    .chain()
+    .insertContentAt(pos, content)
+    .setTextSelection(pos + 1)
+    .scrollIntoView()
+    .run()
+
+  if (!ok) {
+    return { status: 'error', message: 'Failed to insert blocks into the editor' }
+  }
+
+  // Approximate the end of the inserted region for status reporting.
+  const insertedText = specs.map((s) => s.text).join('\n')
+  return {
+    status: 'applied',
+    after_index: afterIndex,
+    inserted: specs.length,
+    from: pos,
+    to: pos + insertedText.length + specs.length * 2,
+    message: describeInsert(specs, afterIndex),
+  }
 }

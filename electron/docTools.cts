@@ -1,7 +1,13 @@
 import { getNode, searchOutline, searchSentences, type DocNode } from './docTree.cjs'
-import { getStoryBlocksFromTree, proposeReplaceStoryInTree, type ReplaceStoryInput } from './storyEdit.cjs'
+import {
+  getStoryBlocksFromTree,
+  proposeInsertBlocksInTree,
+  proposeReplaceStoryInTree,
+  type InsertBlocksInput,
+  type ReplaceStoryInput,
+} from './storyEdit.cjs'
 
-export const RENDERER_DOC_TOOLS = ['replace_text', 'replace_story'] as const
+export const RENDERER_DOC_TOOLS = ['replace_text', 'replace_story', 'insert_blocks'] as const
 export type RendererDocToolName = (typeof RENDERER_DOC_TOOLS)[number]
 
 export function isRendererDocTool(name: string): name is RendererDocToolName {
@@ -15,11 +21,13 @@ function truncate(s: string, max = 80): string {
 function isLikelyTitlePhrase(text: string): boolean {
   const t = text.trim()
   if (t.length < 4 || t.length > 100) return false
-  const words = t.split(/\s+/).filter(Boolean)
-  if (words.length < 2 || words.length > 12) return false
-  if (!/^[A-Z0-9"']/.test(t)) return false
   if (/\w['\u2019]s\b/.test(t) || /^the\s+/i.test(t)) return true
-  return words.length <= 8
+  const words = t.split(/\s+/).filter(Boolean)
+  if (words.length < 2 || words.length > 12 || !/^[A-Z0-9"']/.test(t)) return false
+  const contentWords = words.filter((w) => !/^(a|an|the|of|at|in|on|to|for|and|or)$/i.test(w))
+  if (contentWords.length === 0) return false
+  const capitalized = contentWords.filter((w) => /^[A-Z0-9"']/.test(w))
+  return capitalized.length >= Math.ceil(contentWords.length * 0.6)
 }
 
 function proposeReplaceInTree(tree: DocNode, input: Record<string, unknown>) {
@@ -112,7 +120,7 @@ export const DOC_TOOLS = [
     name: 'get_story_blocks',
     description:
       'List every editable block in reading order: chapter headings and body paragraphs (scene breaks excluded). ' +
-      'Each entry has index, kind ("heading" | "paragraph"), and text. Call before replace_story.',
+      'Each entry has index, kind ("heading" | "paragraph"), and text. Call before replace_story or insert_blocks.',
     input_schema: {
       type: 'object' as const,
       properties: {},
@@ -163,9 +171,7 @@ export const DOC_TOOLS = [
       'Each block is edited independently — headings never merge into paragraphs. Use for story-wide rewrites, ' +
       'renaming chapter titles (e.g. "The Garden\'s Secret" → "The Cafe\'s Secret"), and fixing botched batch edits. ' +
       'Pass updates: [{ index, replace }, ...] for only changed blocks, or a full blocks string array (same length as get_story_blocks). ' +
-      'This tool can only overwrite the text of blocks that already exist — it cannot insert a brand-new heading or paragraph. ' +
-      'For requests that need new content inserted (a new scene, chapter, or character), do not call this tool for the insertion; ' +
-      'instead give the user the drafted text and tell them where to paste it. ' +
+      'This tool can only overwrite the text of blocks that already exist — for brand-new headings or paragraphs use insert_blocks. ' +
       'Clears any in-progress review and opens a single non-overlapping review.',
     input_schema: {
       type: 'object' as const,
@@ -184,6 +190,46 @@ export const DOC_TOOLS = [
       },
     },
   },
+  {
+    name: 'insert_blocks',
+    description:
+      'Insert one or more brand-new headings and/or paragraphs into the manuscript. ' +
+      'Call get_story_blocks first, then pass after_index (block index to insert after; use -1 for the start) ' +
+      'and blocks: [{ kind: "heading"|"paragraph", text, level? }, ...]. ' +
+      'Use when the user asks to add a new scene, chapter, paragraph, or character introduction. ' +
+      'Applies immediately (not an inline review); the author can Undo. Clears any in-progress review.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        after_index: {
+          type: 'number',
+          description:
+            'Insert after this get_story_blocks index. Use -1 to insert at the start of the document.',
+        },
+        blocks: {
+          type: 'array',
+          description: 'New blocks to insert, in order.',
+          items: {
+            type: 'object',
+            properties: {
+              kind: {
+                type: 'string',
+                enum: ['heading', 'paragraph'],
+                description: 'Whether this block is a heading or a body paragraph',
+              },
+              text: { type: 'string', description: 'Heading or paragraph text' },
+              level: {
+                type: 'number',
+                description: 'Heading level 1–3 (headings only; defaults to 1)',
+              },
+            },
+            required: ['kind', 'text'],
+          },
+        },
+      },
+      required: ['after_index', 'blocks'],
+    },
+  },
 ] as const
 
 export type DocToolName = (typeof DOC_TOOLS)[number]['name']
@@ -194,6 +240,9 @@ export function executeDocTool(tree: DocNode, name: string, input: Record<string
     if (name === 'replace_text') return proposeReplaceInTree(tree, input)
     if (name === 'replace_story') {
       return proposeReplaceStoryInTree(tree, input as unknown as ReplaceStoryInput)
+    }
+    if (name === 'insert_blocks') {
+      return proposeInsertBlocksInTree(tree, input as unknown as InsertBlocksInput)
     }
     return { error: `Unknown renderer tool "${name}"` }
   }
