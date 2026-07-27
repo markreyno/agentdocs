@@ -1,4 +1,6 @@
-import type { DocNode } from './docTree.cjs'
+import type { JSONContent } from '@tiptap/core'
+import type { DocNode } from './docTree'
+import type { ReplaceHunk, ReplaceTextResult } from './editTools'
 
 export type StoryBlockKind = 'heading' | 'paragraph'
 
@@ -6,12 +8,16 @@ export interface StoryBlockInfo {
   index: number
   kind: StoryBlockKind
   text: string
+  /** Heading level (headings only). */
   level?: number
 }
 
-interface EditableStoryBlock {
+/** Block with document positions — used by both tree fallbacks and the live editor. */
+export interface EditableStoryBlock {
   index: number
   kind: StoryBlockKind
+  from: number
+  to: number
   text: string
   level?: number
 }
@@ -21,18 +27,38 @@ export type ReplaceStoryUpdate =
   | { index: number; replace: string }
 
 export interface ReplaceStoryInput {
+  /**
+   * Full replacement list in get_story_blocks order, or targeted { index, replace } entries.
+   * Indices cover both headings and body paragraphs.
+   */
   blocks?: ReplaceStoryUpdate[]
+  /** @deprecated Prefer `blocks` — paragraph-only indices (legacy). */
   paragraphs?: ReplaceStoryUpdate[]
 }
 
-type ReplaceStoryResult =
+export interface InsertBlockSpec {
+  kind: StoryBlockKind
+  text: string
+  /** Heading level when kind is "heading" (defaults to 1). */
+  level?: number
+}
+
+export interface InsertBlocksInput {
+  /**
+   * Insert after this get_story_blocks index.
+   * Use -1 to insert at the start of the document.
+   */
+  after_index: number
+  blocks: InsertBlockSpec[]
+}
+
+export type InsertBlocksResult =
   | {
-      status: 'proposed'
+      status: 'applied'
+      after_index: number
+      inserted: number
       from: number
       to: number
-      matchedText: string
-      replace: string
-      hunks: { from: number; to: number; matchedText: string; replace: string }[]
       message: string
     }
   | { status: 'error'; message: string }
@@ -44,7 +70,11 @@ export function getStoryBlocksFromTree(tree: DocNode): StoryBlockInfo[] {
   const walk = (node: DocNode) => {
     if (node.type === 'act' || node.type === 'chapter' || node.type === 'scene') {
       if (node.title?.trim()) {
-        blocks.push({ index: index++, kind: 'heading', text: node.title.trim() })
+        blocks.push({
+          index: index++,
+          kind: 'heading',
+          text: node.title.trim(),
+        })
       }
     }
     if (node.type === 'paragraph') {
@@ -66,6 +96,7 @@ function headingTexts(blocks: EditableStoryBlock[]): string[] {
   return blocks.filter((b) => b.kind === 'heading').map((b) => b.text.trim()).filter(Boolean)
 }
 
+/** Remove a heading title accidentally pasted at the start of a paragraph replacement. */
 function stripAccidentalHeadingPrefix(replace: string, headings: string[]): string {
   let text = replace.trimStart()
   for (const heading of headings.sort((a, b) => b.length - a.length)) {
@@ -99,7 +130,9 @@ function resolveBlockReplacements(
     }
     for (const entry of legacyParagraphs as { index: number; replace: string }[]) {
       const block = paragraphBlocks[entry.index]
-      if (!block) return { error: `Invalid paragraph index ${entry.index}` }
+      if (!block) {
+        return { error: `Invalid paragraph index ${entry.index}` }
+      }
       resolved[entry.index] = stripAccidentalHeadingPrefix(entry.replace, headingTexts(blocks))
     }
     return mergeParagraphUpdates(blocks, resolved)
@@ -129,6 +162,9 @@ function resolveBlockReplacements(
 
   const resolved = blocks.map((block) => block.text)
   for (const entry of input as { index: number; replace: string }[]) {
+    if (typeof entry.index !== 'number' || typeof entry.replace !== 'string') {
+      return { error: 'Each update must have index (number) and replace (string)' }
+    }
     const block = blocks[entry.index]
     if (!block) {
       return { error: `Invalid block index ${entry.index}; document has ${blocks.length} blocks` }
@@ -153,15 +189,25 @@ function mergeParagraphUpdates(blocks: EditableStoryBlock[], paragraphTexts: str
   return resolved
 }
 
-export function proposeReplaceStoryInTree(tree: DocNode, input: ReplaceStoryInput): ReplaceStoryResult {
-  const infos = getStoryBlocksFromTree(tree)
-  const blocks: EditableStoryBlock[] = infos.map((info) => ({
-    index: info.index,
-    kind: info.kind,
-    text: info.text,
-    level: info.level,
-  }))
+function buildStoryHunks(blocks: EditableStoryBlock[], replacements: string[]): ReplaceHunk[] {
+  const hunks: ReplaceHunk[] = []
+  for (const block of blocks) {
+    const replace = replacements[block.index] ?? block.text
+    if (replace === block.text) continue
+    hunks.push({
+      from: block.from,
+      to: block.to,
+      matchedText: block.text,
+      replace,
+    })
+  }
+  return hunks
+}
 
+export function resolveStoryEdit(
+  blocks: EditableStoryBlock[],
+  input: ReplaceStoryInput,
+): ReplaceTextResult {
   if (blocks.length === 0) {
     return { status: 'error', message: 'No editable blocks found in the document' }
   }
@@ -171,17 +217,25 @@ export function proposeReplaceStoryInTree(tree: DocNode, input: ReplaceStoryInpu
     return { status: 'error', message: resolved.error }
   }
 
-  const hunks = blocks
-    .map((block) => {
-      const replace = resolved[block.index] ?? block.text
-      if (replace === block.text) return null
-      return { from: 0, to: 0, matchedText: block.text, replace }
-    })
-    .filter((hunk): hunk is NonNullable<typeof hunk> => hunk !== null)
-
+  const hunks = buildStoryHunks(blocks, resolved)
   if (hunks.length === 0) {
     return { status: 'error', message: 'No block changes proposed' }
   }
+
+  const changedKinds = blocks
+    .filter((block) => (resolved[block.index] ?? block.text) !== block.text)
+    .reduce<Record<StoryBlockKind, number>>(
+      (acc, block) => {
+        acc[block.kind] = (acc[block.kind] ?? 0) + 1
+        return acc
+      },
+      { heading: 0, paragraph: 0 },
+    )
+  const headingCount = changedKinds.heading
+  const paragraphCount = changedKinds.paragraph
+  const parts: string[] = []
+  if (headingCount) parts.push(`${headingCount} heading${headingCount === 1 ? '' : 's'}`)
+  if (paragraphCount) parts.push(`${paragraphCount} paragraph${paragraphCount === 1 ? '' : 's'}`)
 
   const first = hunks[0]!
   return {
@@ -192,32 +246,23 @@ export function proposeReplaceStoryInTree(tree: DocNode, input: ReplaceStoryInpu
     replace: first.replace,
     hunks,
     message:
-      `Consolidated story edit: ${hunks.length} block${hunks.length === 1 ? '' : 's'} proposed. ` +
+      `Consolidated story edit: ${parts.join(' and ')} proposed. ` +
       'Scene breaks preserved; headings and paragraphs are separate non-overlapping blocks.',
   }
 }
 
-export interface InsertBlockSpec {
-  kind: StoryBlockKind
-  text: string
-  level?: number
+export function proposeReplaceStoryInTree(tree: DocNode, input: ReplaceStoryInput): ReplaceTextResult {
+  const infos = getStoryBlocksFromTree(tree)
+  const pseudoBlocks: EditableStoryBlock[] = infos.map((info) => ({
+    index: info.index,
+    kind: info.kind,
+    from: 0,
+    to: 0,
+    text: info.text,
+    level: info.level,
+  }))
+  return resolveStoryEdit(pseudoBlocks, input)
 }
-
-export interface InsertBlocksInput {
-  after_index: number
-  blocks: InsertBlockSpec[]
-}
-
-type InsertBlocksResult =
-  | {
-      status: 'applied'
-      after_index: number
-      inserted: number
-      from: number
-      to: number
-      message: string
-    }
-  | { status: 'error'; message: string }
 
 function normalizeInsertSpecs(raw: unknown): InsertBlockSpec[] | { error: string } {
   if (!Array.isArray(raw) || raw.length === 0) {
@@ -249,34 +294,47 @@ function normalizeInsertSpecs(raw: unknown): InsertBlockSpec[] | { error: string
   return specs
 }
 
-export function proposeInsertBlocksInTree(tree: DocNode, input: InsertBlocksInput): InsertBlocksResult {
-  const infos = getStoryBlocksFromTree(tree)
-  const specs = normalizeInsertSpecs(input.blocks)
-  if (!Array.isArray(specs)) {
-    return { status: 'error', message: specs.error }
-  }
-
-  const afterIndex = Number(input.after_index)
+/** Document position immediately after the given story block, or 0 for after_index -1. */
+export function insertPosAfterIndex(
+  blocks: { from: number; to: number }[],
+  afterIndex: number,
+): number | { error: string } {
   if (!Number.isInteger(afterIndex)) {
-    return { status: 'error', message: 'after_index must be an integer (-1 to insert at the start)' }
+    return { error: 'after_index must be an integer (-1 to insert at the start)' }
   }
-  if (afterIndex !== -1) {
-    if (infos.length === 0) {
-      return {
-        status: 'error',
-        message: 'Document has no blocks; use after_index: -1 to insert at the start',
-      }
-    }
-    if (!infos[afterIndex]) {
-      return {
-        status: 'error',
-        message:
-          `Invalid after_index ${afterIndex}; document has ${infos.length} blocks ` +
-          `(indices 0–${infos.length - 1}), or use -1 for start`,
-      }
+  if (afterIndex === -1) return 0
+  if (blocks.length === 0) {
+    return { error: 'Document has no blocks; use after_index: -1 to insert at the start' }
+  }
+  const block = blocks[afterIndex]
+  if (!block) {
+    return {
+      error:
+        `Invalid after_index ${afterIndex}; document has ${blocks.length} blocks ` +
+        `(indices 0–${blocks.length - 1}), or use -1 for start`,
     }
   }
+  // block.to is the last content position inside the node; +1 is after the node.
+  return block.to + 1
+}
 
+export function insertSpecsToJSON(specs: InsertBlockSpec[]): JSONContent[] {
+  return specs.map((spec) => {
+    if (spec.kind === 'heading') {
+      return {
+        type: 'heading',
+        attrs: { level: spec.level ?? 1 },
+        content: [{ type: 'text', text: spec.text }],
+      }
+    }
+    return {
+      type: 'paragraph',
+      content: [{ type: 'text', text: spec.text }],
+    }
+  })
+}
+
+export function describeInsert(specs: InsertBlockSpec[], afterIndex: number): string {
   const headingCount = specs.filter((s) => s.kind === 'heading').length
   const paragraphCount = specs.filter((s) => s.kind === 'paragraph').length
   const parts: string[] = []
@@ -284,13 +342,46 @@ export function proposeInsertBlocksInTree(tree: DocNode, input: InsertBlocksInpu
   if (paragraphCount) parts.push(`${paragraphCount} paragraph${paragraphCount === 1 ? '' : 's'}`)
   const where =
     afterIndex === -1 ? 'at the start of the document' : `after block index ${afterIndex}`
+  return `Inserted ${parts.join(' and ')} ${where}. Author can Undo to reverse.`
+}
 
-  return {
-    status: 'applied',
-    after_index: afterIndex,
-    inserted: specs.length,
+export function resolveInsertBlocks(
+  blocks: EditableStoryBlock[],
+  input: InsertBlocksInput,
+):
+  | { specs: InsertBlockSpec[]; afterIndex: number; pos: number }
+  | { error: string } {
+  const specs = normalizeInsertSpecs(input.blocks)
+  if (!Array.isArray(specs)) return specs
+
+  const afterIndex = Number(input.after_index)
+  const pos = insertPosAfterIndex(blocks, afterIndex)
+  if (typeof pos !== 'number') return pos
+
+  return { specs, afterIndex, pos }
+}
+
+/** Tree-only validation for the web/desktop tool loop when no live editor is available. */
+export function proposeInsertBlocksInTree(tree: DocNode, input: InsertBlocksInput): InsertBlocksResult {
+  const infos = getStoryBlocksFromTree(tree)
+  const pseudoBlocks: EditableStoryBlock[] = infos.map((info) => ({
+    index: info.index,
+    kind: info.kind,
     from: 0,
     to: 0,
-    message: `Inserted ${parts.join(' and ')} ${where}. Author can Undo to reverse.`,
+    text: info.text,
+    level: info.level,
+  }))
+  const resolved = resolveInsertBlocks(pseudoBlocks, input)
+  if ('error' in resolved) {
+    return { status: 'error', message: resolved.error }
+  }
+  return {
+    status: 'applied',
+    after_index: resolved.afterIndex,
+    inserted: resolved.specs.length,
+    from: 0,
+    to: 0,
+    message: describeInsert(resolved.specs, resolved.afterIndex),
   }
 }

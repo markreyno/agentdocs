@@ -11,6 +11,8 @@ node_modules
 dist
 dist-ssr
 dist-electron
+dist-shared/*
+!dist-shared/package.json
 release
 *.local
 .env

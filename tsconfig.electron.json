@@ -17,5 +17,6 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["electron"]
+  "include": ["electron"],
+  "references": [{ "path": "./tsconfig.shared.json" }]
 }

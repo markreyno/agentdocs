@@ -1,7 +1,6 @@
 import type { Editor } from '@tiptap/react'
 import {
   expandRangeToSentence,
-  isLikelyTitlePhrase,
   locateAllSentencesContaining,
   locateAllTextInDoc,
   locateHeadingMatches,
@@ -10,7 +9,6 @@ import {
   rangesOverlap,
   type DocRange,
 } from './textLocate'
-import { searchSentences, type DocNode } from './docTree'
 import { getActiveReview } from '../extensions/InlineReview'
 import {
   applyInsertBlocksInEditor,
@@ -18,58 +16,31 @@ import {
   type InsertBlocksInput,
   type ReplaceStoryInput,
 } from './storyEdit'
+import {
+  wantsReplaceAll,
+  type ReplaceHunk,
+  type ReplaceTextInput,
+  type ReplaceTextResult,
+} from '../../shared/editTools'
 
-export interface ReplaceTextInput {
-  find?: string
-  replace: string
-  /** When true, replace every match. Single-token finds default to all matches. */
-  replace_all?: boolean
-}
+export type {
+  ReplaceHunk,
+  ReplaceTextInput,
+  ReplaceTextResult,
+  RendererDocToolName,
+} from '../../shared/editTools'
+export {
+  isLikelyTitlePhrase,
+  isRendererDocTool,
+  proposeReplaceInTree,
+  RENDERER_DOC_TOOLS,
+  wantsReplaceAll,
+} from '../../shared/editTools'
 
 export interface SelectionRange {
   from: number
   to: number
   text: string
-}
-
-export type ReplaceHunk = {
-  from: number
-  to: number
-  matchedText: string
-  replace: string
-}
-
-export type ReplaceTextResult =
-  | {
-      status: 'proposed'
-      from: number
-      to: number
-      matchedText: string
-      replace: string
-      hunks: ReplaceHunk[]
-      message: string
-    }
-  | { status: 'not_found'; message: string }
-  | { status: 'error'; message: string }
-
-export const RENDERER_DOC_TOOLS = ['replace_text', 'replace_story', 'insert_blocks'] as const
-export type RendererDocToolName = (typeof RENDERER_DOC_TOOLS)[number]
-
-export function isRendererDocTool(name: string): name is RendererDocToolName {
-  return (RENDERER_DOC_TOOLS as readonly string[]).includes(name)
-}
-
-function wantsReplaceAll(
-  find: string,
-  matchCount: number,
-  replace: string,
-  replaceAll?: boolean,
-): boolean {
-  if (replaceAll === true) return true
-  if (replaceAll === false) return false
-  if (matchCount <= 1) return false
-  if (/^\S+$/.test(find)) return true
-  return replace.trim().length > find.length + 12
 }
 
 /** True when replace looks like a rewrite of a larger span, not a same-size phrase swap. */
@@ -151,51 +122,6 @@ function resolveFindRanges(
   }
 
   return { ranges, useAll }
-}
-
-/** Tree-only fallback when no live editor is available (web server tool loop). */
-export function proposeReplaceInTree(tree: DocNode, input: ReplaceTextInput): ReplaceTextResult {
-  const replace = String(input.replace ?? '')
-  if (!replace) return { status: 'error', message: 'replace is required' }
-
-  const find = String(input.find ?? '').trim()
-  if (!find) {
-    return { status: 'error', message: 'find is required when no editor selection is active' }
-  }
-
-  if (isLikelyTitlePhrase(find)) {
-    return {
-      status: 'error',
-      message:
-        `find looks like a chapter heading ("${truncate(find)}"). Use get_story_blocks and replace_story instead of replace_text.`,
-    }
-  }
-
-  const hits = searchSentences(tree, find)
-  if (hits.length === 0) {
-    return { status: 'not_found', message: `Could not find passage matching: "${truncate(find)}"` }
-  }
-
-  const useAll = wantsReplaceAll(find, hits.length, replace, input.replace_all)
-  const selected = useAll ? hits : [hits[0]!]
-  const hunks = buildHunksFromRanges(
-    selected.map((hit) => ({ from: hit.pos.from, to: hit.pos.to, text: hit.text })),
-    replace,
-  )
-  const first = hunks[0]!
-
-  return {
-    status: 'proposed',
-    from: first.from,
-    to: first.to,
-    matchedText: first.matchedText,
-    replace,
-    hunks,
-    message:
-      hunks.length > 1
-        ? `Matched ${hunks.length} passages; proposed replacements for all. Author must accept in editor.`
-        : 'Edit proposed for author review in the editor.',
-  }
 }
 
 /** Resolve a replace_text call against the live editor without mutating the document. */

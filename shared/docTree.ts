@@ -1,9 +1,5 @@
 import type { JSONContent } from '@tiptap/core'
 
-// Kept in sync with src/lib/docTree.ts by hand: the web build uses bundler-mode
-// extensionless imports while Electron's tsconfig requires nodenext-style
-// extensions, so the two can't share a single source file without friction.
-
 export type DocNodeType = 'book' | 'act' | 'chapter' | 'scene' | 'paragraph' | 'sentence'
 
 export interface DocNode {

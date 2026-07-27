@@ -1,93 +1,18 @@
-import { getNode, searchOutline, searchSentences, type DocNode } from './docTree.cjs'
+import { getNode, searchOutline, searchSentences, type DocNode } from './docTree'
+import {
+  isRendererDocTool,
+  proposeReplaceInTree,
+  RENDERER_DOC_TOOLS,
+} from './editTools'
 import {
   getStoryBlocksFromTree,
   proposeInsertBlocksInTree,
   proposeReplaceStoryInTree,
   type InsertBlocksInput,
   type ReplaceStoryInput,
-} from './storyEdit.cjs'
+} from './storyEdit'
 
-export const RENDERER_DOC_TOOLS = ['replace_text', 'replace_story', 'insert_blocks'] as const
-export type RendererDocToolName = (typeof RENDERER_DOC_TOOLS)[number]
-
-export function isRendererDocTool(name: string): name is RendererDocToolName {
-  return (RENDERER_DOC_TOOLS as readonly string[]).includes(name)
-}
-
-function truncate(s: string, max = 80): string {
-  return s.length <= max ? s : `${s.slice(0, max)}…`
-}
-
-function isLikelyTitlePhrase(text: string): boolean {
-  const t = text.trim()
-  if (t.length < 4 || t.length > 100) return false
-  if (/\w['\u2019]s\b/.test(t) || /^the\s+/i.test(t)) return true
-  const words = t.split(/\s+/).filter(Boolean)
-  if (words.length < 2 || words.length > 12 || !/^[A-Z0-9"']/.test(t)) return false
-  const contentWords = words.filter((w) => !/^(a|an|the|of|at|in|on|to|for|and|or)$/i.test(w))
-  if (contentWords.length === 0) return false
-  const capitalized = contentWords.filter((w) => /^[A-Z0-9"']/.test(w))
-  return capitalized.length >= Math.ceil(contentWords.length * 0.6)
-}
-
-function proposeReplaceInTree(tree: DocNode, input: Record<string, unknown>) {
-  const replace = String(input.replace ?? '')
-  if (!replace) return { status: 'error', message: 'replace is required' }
-
-  const find = String(input.find ?? '').trim()
-  if (!find) {
-    return {
-      status: 'error',
-      message:
-        'find is required when no editor selection is active. ' +
-        'For a rename, call replace_text with find, replace, and replace_all: true ' +
-        '(example: find "Boby", replace "Toby", replace_all true).',
-    }
-  }
-
-  if (isLikelyTitlePhrase(find)) {
-    return {
-      status: 'error',
-      message:
-        `find looks like a chapter heading ("${truncate(find)}"). Use get_story_blocks and replace_story instead of replace_text.`,
-    }
-  }
-
-  const hits = searchSentences(tree, find)
-  if (hits.length === 0) {
-    return { status: 'not_found', message: `Could not find passage matching: "${truncate(find)}"` }
-  }
-
-  const replaceAll = input.replace_all === true
-  const useAll =
-    replaceAll ||
-    (input.replace_all !== false &&
-      hits.length > 1 &&
-      (/^\S+$/.test(find) || replace.trim().length > find.length + 12))
-  const selected = useAll ? hits : [hits[0]!]
-  const hunks = selected.map((hit) => ({
-    from: hit.pos.from,
-    to: hit.pos.to,
-    matchedText: hit.text,
-    replace,
-  }))
-  const first = hunks[0]!
-
-  return {
-    status: 'proposed',
-    from: first.from,
-    to: first.to,
-    matchedText: first.matchedText,
-    replace,
-    hunks,
-    message:
-      hunks.length > 1
-        ? `Matched ${hunks.length} passages; proposed replacements for all. Author must accept in editor.`
-        : 'Edit proposed for author review in the editor.',
-  }
-}
-
-/** Tool schemas exposing docTree search/lookup and edit tools to any provider. Kept in sync with src/lib/docTools.ts. */
+/** Tool schemas exposing docTree search/lookup and edit tools to the model. */
 export const DOC_TOOLS = [
   {
     name: 'search_outline',
@@ -95,7 +20,7 @@ export const DOC_TOOLS = [
       'Coarse search over the manuscript\'s Act/Chapter/Scene titles and summaries. ' +
       'Use this first to find where in the book something happens before drilling into sentence-level search.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {
         query: { type: 'string', description: 'Keyword or phrase to search for' },
       },
@@ -109,7 +34,7 @@ export const DOC_TOOLS = [
       'like grep returning file:line. Use after search_outline narrows down a chapter/scene. ' +
       'When the user asks for a story-wide change, search here first and edit every matching passage.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {
         query: { type: 'string', description: 'Keyword or phrase to search for' },
       },
@@ -122,7 +47,7 @@ export const DOC_TOOLS = [
       'List every editable block in reading order: chapter headings and body paragraphs (scene breaks excluded). ' +
       'Each entry has index, kind ("heading" | "paragraph"), and text. Call before replace_story or insert_blocks.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {},
     },
   },
@@ -132,7 +57,7 @@ export const DOC_TOOLS = [
       'Fetch a specific node of the document tree (book/act/chapter/scene/paragraph/sentence) by id, ' +
       'including its full text and children.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {
         id: { type: 'string', description: 'Node id, e.g. "act-0/ch-2/sc-1"' },
       },
@@ -147,7 +72,7 @@ export const DOC_TOOLS = [
       'and replace_all: true. Only omit find when the user has an active editor selection — then replace is the full new selection text. ' +
       'Blocked for chapter headings (use replace_story) and blocked when overlapping an in-progress review.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {
         find: {
           type: 'string',
@@ -174,13 +99,25 @@ export const DOC_TOOLS = [
       'This tool can only overwrite the text of blocks that already exist — for brand-new headings or paragraphs use insert_blocks. ' +
       'Clears any in-progress review and opens a single non-overlapping review.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {
         blocks: {
           type: 'array',
           description:
             'Full block list in get_story_blocks order, or { index, replace } updates. Indices include headings and paragraphs.',
-          items: { type: 'string' },
+          items: {
+            oneOf: [
+              { type: 'string' },
+              {
+                type: 'object',
+                properties: {
+                  index: { type: 'number', description: 'Block index from get_story_blocks' },
+                  replace: { type: 'string', description: 'New heading or paragraph text (not both)' },
+                },
+                required: ['index', 'replace'],
+              },
+            ],
+          },
         },
         paragraphs: {
           type: 'array',
@@ -199,7 +136,7 @@ export const DOC_TOOLS = [
       'Use when the user asks to add a new scene, chapter, paragraph, or character introduction. ' +
       'Applies immediately (not an inline review); the author can Undo. Clears any in-progress review.',
     input_schema: {
-      type: 'object' as const,
+      type: 'object',
       properties: {
         after_index: {
           type: 'number',
@@ -234,10 +171,17 @@ export const DOC_TOOLS = [
 
 export type DocToolName = (typeof DOC_TOOLS)[number]['name']
 
-/** Runs a doc tool call against the current tree. Returns a JSON-serializable result. */
+export { isRendererDocTool, RENDERER_DOC_TOOLS }
+
+/**
+ * Runs a doc tool call against the current tree. Renderer tools (replace_text, replace_story, insert_blocks)
+ * use a tree fallback here; the live editor applies the edit via executeRendererDocTool / AgentSidebar.
+ */
 export function executeDocTool(tree: DocNode, name: string, input: Record<string, unknown>): unknown {
   if (isRendererDocTool(name)) {
-    if (name === 'replace_text') return proposeReplaceInTree(tree, input)
+    if (name === 'replace_text') {
+      return proposeReplaceInTree(tree, input as { find?: string; replace: string })
+    }
     if (name === 'replace_story') {
       return proposeReplaceStoryInTree(tree, input as unknown as ReplaceStoryInput)
     }
