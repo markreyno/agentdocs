@@ -10,6 +10,14 @@ import { DOC_TOOLS, executeDocTool } from '../src/lib/docTools'
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 8787
 const MAX_TOOL_ITERATIONS = 6
 const DEMO_RATE_LIMIT = 5
+/** Drop idle IP entries after this TTL (default 24h). */
+const DEMO_USAGE_TTL_MS = process.env.DEMO_USAGE_TTL_MS
+  ? Number(process.env.DEMO_USAGE_TTL_MS)
+  : 24 * 60 * 60 * 1000
+const DEMO_USAGE_MAX_ENTRIES = process.env.DEMO_USAGE_MAX_ENTRIES
+  ? Number(process.env.DEMO_USAGE_MAX_ENTRIES)
+  : 10_000
+const DEMO_USAGE_SWEEP_INTERVAL_MS = 60_000
 
 /**
  * Identifies this process's lifetime. The client persists its demo-use count in
@@ -22,22 +30,74 @@ const SERVER_EPOCH = randomUUID()
 const anthropic = new Anthropic()
 
 const app = express()
+
+/**
+ * Only honor X-Forwarded-For when the immediate peer is a configured trusted
+ * proxy. Unset / "false" → never trust the header (use the socket address).
+ * Set TRUST_PROXY to a hop count, IP/CIDR, or Express shortcut ("loopback",
+ * "uniquelocal", "linklocal") matching your reverse proxy.
+ */
+app.set('trust proxy', parseTrustProxy(process.env.TRUST_PROXY))
 app.use(express.json({ limit: '2mb' }))
 
-const demoUsageByIp = new Map<string, number>()
+interface DemoUsageEntry {
+  count: number
+  lastAccessAt: number
+}
 
-app.get('/api/demo-status', (req, res) => {
-  const usageCount = demoUsageByIp.get(getClientIp(req)) ?? 0
-  res.json({ epoch: SERVER_EPOCH, remaining: Math.max(0, DEMO_RATE_LIMIT - usageCount) })
-})
+/** Insertion-ordered map used as an LRU; TTL sweep removes idle entries. */
+const demoUsageByIp = new Map<string, DemoUsageEntry>()
+
+function parseTrustProxy(value: string | undefined): boolean | number | string {
+  if (value === undefined || value === '' || value === 'false') return false
+  if (value === 'true') return 1
+  const asNum = Number(value)
+  if (Number.isInteger(asNum) && asNum >= 0 && String(asNum) === value.trim()) return asNum
+  return value
+}
 
 function getClientIp(req: express.Request): string {
-  const forwarded = req.headers['x-forwarded-for']
-  if (typeof forwarded === 'string' && forwarded.length > 0) {
-    return forwarded.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown'
-  }
-  return req.socket.remoteAddress || 'unknown'
+  // req.ip respects trust proxy; X-Forwarded-For is ignored unless configured.
+  return req.ip || req.socket.remoteAddress || 'unknown'
 }
+
+function sweepExpiredDemoUsage(now = Date.now()): void {
+  const cutoff = now - DEMO_USAGE_TTL_MS
+  for (const [ip, entry] of demoUsageByIp) {
+    if (entry.lastAccessAt < cutoff) demoUsageByIp.delete(ip)
+  }
+}
+
+function evictLruOverflow(): void {
+  while (demoUsageByIp.size > DEMO_USAGE_MAX_ENTRIES) {
+    const oldest = demoUsageByIp.keys().next().value
+    if (oldest === undefined) break
+    demoUsageByIp.delete(oldest)
+  }
+}
+
+function getDemoUsage(ip: string): DemoUsageEntry {
+  const now = Date.now()
+  const existing = demoUsageByIp.get(ip)
+  if (existing) {
+    demoUsageByIp.delete(ip)
+    existing.lastAccessAt = now
+    demoUsageByIp.set(ip, existing)
+    return existing
+  }
+  const entry: DemoUsageEntry = { count: 0, lastAccessAt: now }
+  demoUsageByIp.set(ip, entry)
+  evictLruOverflow()
+  return entry
+}
+
+const demoUsageSweepTimer = setInterval(() => sweepExpiredDemoUsage(), DEMO_USAGE_SWEEP_INTERVAL_MS)
+demoUsageSweepTimer.unref?.()
+
+app.get('/api/demo-status', (req, res) => {
+  const usageCount = demoUsageByIp.get(getClientIp(req))?.count ?? 0
+  res.json({ epoch: SERVER_EPOCH, remaining: Math.max(0, DEMO_RATE_LIMIT - usageCount) })
+})
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -53,16 +113,15 @@ app.post('/api/chat', async (req, res) => {
     return
   }
 
-  const clientIp = getClientIp(req)
-  const usageCount = demoUsageByIp.get(clientIp) ?? 0
-  if (usageCount >= DEMO_RATE_LIMIT) {
+  const usage = getDemoUsage(getClientIp(req))
+  if (usage.count >= DEMO_RATE_LIMIT) {
     res.status(429).json({
       error: 'Demo limit reached. Download the desktop app for unlimited access.',
       remaining: 0,
     })
     return
   }
-  demoUsageByIp.set(clientIp, usageCount + 1)
+  usage.count += 1
 
   res.setHeader('Content-Type', 'text/event-stream')
   res.setHeader('Cache-Control', 'no-cache')
