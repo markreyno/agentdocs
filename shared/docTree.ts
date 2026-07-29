@@ -50,23 +50,52 @@ interface FlatBlock {
   isSceneBreak?: boolean
 }
 
-/** Walks the top-level blocks of the doc, tracking character offsets as we go. */
+/** Block containers that nest leaf prose (StarterKit lists / quotes). */
+const CONTAINER_TYPES = new Set(['bulletList', 'orderedList', 'blockquote', 'listItem'])
+
+/**
+ * Walks the doc collecting leaf prose + structural markers, tracking character
+ * offsets. Recurses into lists/blockquotes so their paragraphs are searchable —
+ * otherwise searchSentences silently misses toolbar-created content while
+ * locateAllTextInDoc (textBetween) still sees it.
+ */
 function flattenBlocks(doc: JSONContent): FlatBlock[] {
   const blocks: FlatBlock[] = []
   let pos = 0
-  for (const node of doc.content ?? []) {
-    const size = nodeText(node).length + 2 // +2 approximates ProseMirror's node boundary tokens
+
+  const pushLeaf = (node: JSONContent, extra?: Partial<FlatBlock>) => {
+    const size = nodeText(node).length + 2 // +2 approximates ProseMirror open/close tokens
     const from = pos
     const to = pos + size
-    if (node.type === 'heading') {
-      blocks.push({ node, from, to, headingLevel: node.attrs?.level ?? 1 })
-    } else if (node.type === 'horizontalRule') {
-      blocks.push({ node, from, to, isSceneBreak: true })
-    } else if (node.type === 'paragraph') {
-      blocks.push({ node, from, to })
-    }
+    blocks.push({ node, from, to, ...extra })
     pos = to
   }
+
+  const visit = (node: JSONContent) => {
+    if (node.type === 'heading') {
+      pushLeaf(node, { headingLevel: node.attrs?.level ?? 1 })
+      return
+    }
+    if (node.type === 'horizontalRule') {
+      pushLeaf(node, { isSceneBreak: true })
+      return
+    }
+    // Leaf prose: top-level paragraphs and nested ones inside lists/quotes, plus code blocks.
+    if (node.type === 'paragraph' || node.type === 'codeBlock') {
+      pushLeaf(node)
+      return
+    }
+    if (CONTAINER_TYPES.has(node.type ?? '')) {
+      pos += 1 // container open token
+      for (const child of node.content ?? []) visit(child)
+      pos += 1 // container close token
+      return
+    }
+    // Unknown block: keep offsets moving so later blocks stay roughly aligned.
+    pos += nodeText(node).length + 2
+  }
+
+  for (const node of doc.content ?? []) visit(node)
   return blocks
 }
 
@@ -186,7 +215,7 @@ export function buildDocTree(doc: JSONContent, bookTitle = 'Untitled'): DocNode 
       startNewChapter(nodeText(block.node), block.from)
     } else if ((sceneLevel !== undefined && block.headingLevel === sceneLevel) || block.isSceneBreak) {
       startNewScene(block.headingLevel ? nodeText(block.node) : undefined, block.from)
-    } else if (block.node.type === 'paragraph') {
+    } else if (block.node.type === 'paragraph' || block.node.type === 'codeBlock') {
       if (!scene) startNewScene(undefined, block.from)
       const text = nodeText(block.node)
       if (!text.trim()) continue

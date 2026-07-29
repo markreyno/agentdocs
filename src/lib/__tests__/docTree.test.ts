@@ -24,6 +24,30 @@ function hr(): JSONContent {
   return { type: 'horizontalRule' }
 }
 
+function bulletList(...items: string[]): JSONContent {
+  return {
+    type: 'bulletList',
+    content: items.map((text) => ({
+      type: 'listItem',
+      content: [p(text)],
+    })),
+  }
+}
+
+function blockquote(...paras: string[]): JSONContent {
+  return {
+    type: 'blockquote',
+    content: paras.map(p),
+  }
+}
+
+function codeBlock(text: string): JSONContent {
+  return {
+    type: 'codeBlock',
+    content: text ? [{ type: 'text', text }] : undefined,
+  }
+}
+
 describe('buildDocTree', () => {
   it('builds book → chapter → scene → paragraph → sentence with one heading level', () => {
     const tree = buildDocTree(
@@ -107,6 +131,25 @@ describe('buildDocTree', () => {
     const chapter = tree.children![0]!
     expect(chapter.summary).toBe('Alpha leads.')
     expect(chapter.children![0]!.summary).toBe('Alpha leads.')
+  })
+
+  it('indexes list, blockquote, and code-block prose (not only bare paragraphs)', () => {
+    const tree = buildDocTree(
+      doc(
+        p('Normal paragraph mentions Boby.'),
+        bulletList('Boby packed his bag.'),
+        blockquote('Boby whispered a secret.'),
+        codeBlock('const hero = "Boby"'),
+      ),
+    )
+
+    const hits = searchSentences(tree, 'Boby')
+    expect(hits.map((h) => h.text)).toEqual([
+      'Normal paragraph mentions Boby.',
+      'Boby packed his bag.',
+      'Boby whispered a secret.',
+      'const hero = "Boby"',
+    ])
   })
 })
 
