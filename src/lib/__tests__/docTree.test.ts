@@ -98,6 +98,31 @@ describe('buildDocTree', () => {
     expect(scene.title).toBe('Opening')
   })
 
+  it('folds headings below the third distinct level into scenes', () => {
+    const tree = buildDocTree(
+      doc(
+        h(1, 'Act I'),
+        h(2, 'Chapter 1'),
+        h(3, 'Opening'),
+        p('Before the subsection.'),
+        h(4, 'A quieter beat'),
+        p('Whispers in the hall.'),
+        h(5, 'Even deeper'),
+        p('Dust settles.'),
+      ),
+    )
+
+    const chapter = tree.children![0]!.children![0]!
+    expect(chapter.children).toHaveLength(3)
+    expect(chapter.children!.map((s) => s.title)).toEqual([
+      'Opening',
+      'A quieter beat',
+      'Even deeper',
+    ])
+    expect(chapter.children![1]!.children![0]!.children![0]!.text).toBe('Whispers in the hall.')
+    expect(searchOutline(tree, 'quieter')).toHaveLength(1)
+  })
+
   it('treats horizontal rules as scene breaks', () => {
     const tree = buildDocTree(
       doc(

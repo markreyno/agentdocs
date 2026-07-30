@@ -213,8 +213,12 @@ export function buildDocTree(doc: JSONContent, bookTitle = 'Untitled'): DocNode 
       chapter = undefined
     } else if (chapterLevel !== undefined && block.headingLevel === chapterLevel) {
       startNewChapter(nodeText(block.node), block.from)
-    } else if ((sceneLevel !== undefined && block.headingLevel === sceneLevel) || block.isSceneBreak) {
-      startNewScene(block.headingLevel ? nodeText(block.node) : undefined, block.from)
+    } else if (
+      block.isSceneBreak ||
+      // Scene level and every deeper distinct level fold into scenes (h4+ when act/chapter/scene map to h1–h3).
+      (sceneLevel !== undefined && block.headingLevel != null && block.headingLevel >= sceneLevel)
+    ) {
+      startNewScene(block.headingLevel != null ? nodeText(block.node) : undefined, block.from)
     } else if (block.node.type === 'paragraph' || block.node.type === 'codeBlock') {
       if (!scene) startNewScene(undefined, block.from)
       const text = nodeText(block.node)
