@@ -1,3 +1,5 @@
+import { clearDemoSession, ensureDemoSessionToken } from './demoSession'
+
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
@@ -12,34 +14,88 @@ interface StreamChatHandlers {
   onRateLimited?: () => void
 }
 
+async function readErrorMessage(response: Response, fallback: string): Promise<string> {
+  try {
+    const body = (await response.json()) as { error?: string }
+    if (body.error) return body.error
+  } catch {
+    // use fallback
+  }
+  return fallback
+}
+
 /** Streams a chat completion from /api/chat, parsing the server's SSE frames. */
 export async function streamChat(
   messages: ChatMessage[],
   { onDelta, onDone, onError, onToolUse, onRateLimited }: StreamChatHandlers,
   documentJson?: unknown,
 ) {
-  let response: Response
-  try {
-    response = await fetch('/api/chat', {
+  let token = await ensureDemoSessionToken()
+  if (!token) {
+    onError('Could not start a demo session. Is the API server running?')
+    return
+  }
+
+  const postChat = (bearer: string) =>
+    fetch('/api/chat', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${bearer}`,
+      },
+      credentials: 'same-origin',
       body: JSON.stringify({ messages, documentJson }),
     })
+
+  let response: Response
+  try {
+    response = await postChat(token)
   } catch {
     onError('Could not reach the AI server. Is it running?')
     return
   }
 
+  // Session may have expired server-side; mint once and retry.
+  if (response.status === 401) {
+    clearDemoSession()
+    token = await ensureDemoSessionToken()
+    if (!token) {
+      onError(await readErrorMessage(response, 'Demo session expired.'))
+      return
+    }
+    try {
+      response = await postChat(token)
+    } catch {
+      onError('Could not reach the AI server. Is it running?')
+      return
+    }
+  }
+
   if (response.status === 429) {
     onRateLimited?.()
-    let message = 'Demo limit reached. Download the desktop app for unlimited access.'
-    try {
-      const body = (await response.json()) as { error?: string }
-      if (body.error) message = body.error
-    } catch {
-      // use default message
-    }
-    onError(message)
+    onError(
+      await readErrorMessage(
+        response,
+        'Demo limit reached. Download the desktop app for unlimited access.',
+      ),
+    )
+    return
+  }
+
+  if (response.status === 403) {
+    onError(await readErrorMessage(response, 'This origin is not allowed to use demo chat.'))
+    return
+  }
+
+  if (response.status === 401 || response.status === 503) {
+    onError(
+      await readErrorMessage(
+        response,
+        response.status === 503
+          ? 'Demo chat is disabled on the server.'
+          : 'Demo session authorization failed.',
+      ),
+    )
     return
   }
 

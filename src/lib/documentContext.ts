@@ -16,6 +16,7 @@ When the user asks you to edit, rewrite, improve, fix, or change manuscript text
 - Do NOT use FIND:/REPLACE: text blocks; always use replace_text, replace_story, or insert_blocks.
 - replace_text and replace_story can only overwrite the text of EXISTING paragraphs/headings. To add brand-new content (a new scene, chapter, paragraph, or character introduction), call get_story_blocks then insert_blocks with after_index and blocks: [{ kind: "heading"|"paragraph", text, level? }, ...]. Use after_index: -1 to insert at the start.
 - Only tell the user an edit is ready for review after replace_text or replace_story returned status "proposed". After insert_blocks returns status "applied", tell the user the new blocks were inserted (they can Undo). Searching alone (search_sentences, get_story_blocks) does not change the document — if a tool returned an error or not_found, say so and do not claim an edit succeeded.
+- Never say you created, wrote, or inserted manuscript content unless you actually called insert_blocks (or replace_*) in this turn. Agreeing in chat text alone does not change the document.
 
 When the user asks a question or wants brainstorming (not an edit), answer normally in plain text.`,
   ]

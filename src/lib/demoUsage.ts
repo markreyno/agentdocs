@@ -1,3 +1,5 @@
+import { mintDemoSession } from './demoSession'
+
 export const DEMO_USAGE_LIMIT = 5
 
 const STORAGE_KEY = 'agentdocs:demo-uses'
@@ -40,29 +42,26 @@ export function getRemainingDemoUses(): number {
 }
 
 /**
- * Reconciles the locally-cached use count against the API server's actual state.
- * The server's usage counter lives in memory and resets on restart/redeploy, but
- * this client-side count persists in localStorage — without this check, a stale
- * "limit reached" cached from a previous server process can lock the UI out
- * forever even though the server would happily accept fresh requests. Call this
- * before trusting isDemoLimitReached() for anything user-facing (e.g. on mount).
+ * Mints an ephemeral demo session (invisible to the user) and reconciles the
+ * locally-cached use count against the API server. Call on web-demo mount
+ * before trusting isDemoLimitReached() for anything user-facing.
  */
 export async function syncDemoUsageWithServer(): Promise<void> {
-  let response: Response
-  try {
-    response = await fetch('/api/demo-status')
-  } catch {
-    return
-  }
-  if (!response.ok) return
+  const body = await mintDemoSession()
+  if (!body) return
 
-  let body: { epoch?: string; remaining?: number }
-  try {
-    body = await response.json()
-  } catch {
+  if (typeof body.epoch !== 'string') return
+
+  // Server has demo chat turned off — treat as exhausted so UI shows download CTA.
+  if (body.enabled === false || typeof body.remaining !== 'number') {
+    try {
+      localStorage.setItem(EPOCH_KEY, body.epoch)
+      localStorage.setItem(STORAGE_KEY, String(DEMO_USAGE_LIMIT))
+    } catch {
+      // ignore quota errors
+    }
     return
   }
-  if (typeof body.epoch !== 'string' || typeof body.remaining !== 'number') return
 
   let storedEpoch: string | null = null
   try {
