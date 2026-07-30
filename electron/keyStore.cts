@@ -3,6 +3,9 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { ProviderId } from './providers/types.cjs'
 
+const ENC_PREFIX = 'enc:'
+const RAW_PREFIX = 'raw:'
+
 function storePath(): string {
   return path.join(app.getPath('userData'), 'provider-keys.json')
 }
@@ -20,13 +23,40 @@ function writeStore(store: Record<string, string>) {
   fs.writeFileSync(storePath(), JSON.stringify(store), 'utf-8')
 }
 
+function encodeEncrypted(apiKey: string): string {
+  return ENC_PREFIX + safeStorage.encryptString(apiKey).toString('base64')
+}
+
+function encodeRaw(apiKey: string): string {
+  return RAW_PREFIX + Buffer.from(apiKey, 'utf-8').toString('base64')
+}
+
+function decodeEncrypted(payload: string): string | undefined {
+  if (!safeStorage.isEncryptionAvailable()) return undefined
+  try {
+    return safeStorage.decryptString(Buffer.from(payload, 'base64'))
+  } catch {
+    return undefined
+  }
+}
+
+function decodeRaw(payload: string): string {
+  return Buffer.from(payload, 'base64').toString('utf-8')
+}
+
+/** Upgrade a plaintext-stored key to encrypted form when the OS keyring becomes available. */
+function persistEncrypted(provider: ProviderId, apiKey: string) {
+  if (!safeStorage.isEncryptionAvailable()) return
+  const store = readStore()
+  store[provider] = encodeEncrypted(apiKey)
+  writeStore(store)
+}
+
 export function setKey(provider: ProviderId, apiKey: string) {
   const store = readStore()
-  if (safeStorage.isEncryptionAvailable()) {
-    store[provider] = safeStorage.encryptString(apiKey).toString('base64')
-  } else {
-    store[provider] = Buffer.from(apiKey, 'utf-8').toString('base64')
-  }
+  store[provider] = safeStorage.isEncryptionAvailable()
+    ? encodeEncrypted(apiKey)
+    : encodeRaw(apiKey)
   writeStore(store)
 }
 
@@ -35,14 +65,32 @@ export function getKey(provider: ProviderId): string | undefined {
   const value = store[provider]
   if (!value) return undefined
 
+  if (value.startsWith(ENC_PREFIX)) {
+    return decodeEncrypted(value.slice(ENC_PREFIX.length))
+  }
+
+  if (value.startsWith(RAW_PREFIX)) {
+    const apiKey = decodeRaw(value.slice(RAW_PREFIX.length))
+    persistEncrypted(provider, apiKey)
+    return apiKey
+  }
+
+  // Legacy entries (no prefix): try decrypt when available, else treat as raw.
   if (safeStorage.isEncryptionAvailable()) {
-    try {
-      return safeStorage.decryptString(Buffer.from(value, 'base64'))
-    } catch {
-      return undefined
+    const decrypted = decodeEncrypted(value)
+    if (decrypted !== undefined) {
+      // Rewrite with prefix so future reads don't guess.
+      const next = readStore()
+      next[provider] = encodeEncrypted(decrypted)
+      writeStore(next)
+      return decrypted
     }
   }
-  return Buffer.from(value, 'base64').toString('utf-8')
+
+  const apiKey = decodeRaw(value)
+  if (!apiKey) return undefined
+  persistEncrypted(provider, apiKey)
+  return apiKey
 }
 
 export function hasKey(provider: ProviderId): boolean {
