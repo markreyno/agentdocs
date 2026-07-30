@@ -3,7 +3,6 @@ import { useTheme } from './lib/theme'
 
 interface LandingPageProps {
   onGetStarted: () => void
-  onSignIn: () => void
   onLearn: () => void
   onDownload?: () => void
 }
@@ -144,7 +143,7 @@ function HeroDemoVideo({ isDark }: { isDark: boolean }) {
   )
 }
 
-export default function LandingPage({ onGetStarted, onSignIn, onLearn, onDownload }: LandingPageProps) {
+export default function LandingPage({ onGetStarted, onLearn, onDownload }: LandingPageProps) {
   const { theme, toggleTheme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -173,16 +172,6 @@ export default function LandingPage({ onGetStarted, onSignIn, onLearn, onDownloa
             }`}
           >
             Learn
-          </button>
-          <button
-            onClick={onSignIn}
-            className={`px-5 py-2 rounded-md border text-sm font-sans transition-colors cursor-pointer ${
-              isDark
-                ? 'border-white/30 text-gray-200 hover:bg-white/10'
-                : 'border-black/20 text-gray-700 hover:bg-black/5'
-            }`}
-          >
-            Sign In
           </button>
           <button
             onClick={onDownload}

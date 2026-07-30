@@ -1,22 +1,20 @@
 import { useEffect, useState } from 'react'
 import LandingPage from './LandingPage'
 import LearnPage from './LearnPage'
-import SignInPage from './SignInPage'
 import TiptapEditor from './TiptapEditor'
-import UserDashboard from './UserDashboard'
 import { openDesktopDownload } from './lib/desktopDownload'
 
-type Page = 'landing' | 'signin' | 'learn' | 'editor' | 'dashboard'
+// SignInPage / dashboard are intentionally unwired for MVP (learn, demo, download only).
+type Page = 'landing' | 'learn' | 'editor'
 
 function pageFromHash(): Page | null {
   const raw = window.location.hash.replace(/^#\/?/, '')
   const [segment] = raw.split('/')
-  if (segment === 'signin') return 'signin'
-  if (segment === 'dashboard') return 'dashboard'
   if (segment === 'learn') return 'learn'
   if (segment === 'editor') return 'editor'
   if (segment === '' || segment === 'landing') return 'landing'
-  return null
+  // Unknown / deferred routes (signin, dashboard) fall back to landing
+  return 'landing'
 }
 
 function hashForPage(page: Page): string {
@@ -43,24 +41,6 @@ export default function WebApp() {
     }
   }, [page])
 
-  if (page === 'signin') {
-    return (
-      <SignInPage
-        onBack={() => setPage('landing')}
-        onOpenDashboard={() => setPage('dashboard')}
-      />
-    )
-  }
-
-  if (page === 'dashboard') {
-    return (
-      <UserDashboard
-        onBack={() => setPage('landing')}
-        onOpenEditor={() => setPage('editor')}
-      />
-    )
-  }
-
   if (page === 'learn') {
     return (
       <LearnPage
@@ -81,7 +61,6 @@ export default function WebApp() {
   return (
     <LandingPage
       onGetStarted={() => setPage('editor')}
-      onSignIn={() => setPage('signin')}
       onLearn={() => setPage('learn')}
       onDownload={openDesktopDownload}
     />
