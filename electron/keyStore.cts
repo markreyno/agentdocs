@@ -20,15 +20,14 @@ function readStore(): Record<string, string> {
 }
 
 function writeStore(store: Record<string, string>) {
-  fs.writeFileSync(storePath(), JSON.stringify(store), 'utf-8')
+  const filePath = storePath()
+  // mode applies on create; chmod tightens perms if the file already existed as 0644.
+  fs.writeFileSync(filePath, JSON.stringify(store), { encoding: 'utf-8', mode: 0o600 })
+  fs.chmodSync(filePath, 0o600)
 }
 
 function encodeEncrypted(apiKey: string): string {
   return ENC_PREFIX + safeStorage.encryptString(apiKey).toString('base64')
-}
-
-function encodeRaw(apiKey: string): string {
-  return RAW_PREFIX + Buffer.from(apiKey, 'utf-8').toString('base64')
 }
 
 function decodeEncrypted(payload: string): string | undefined {
@@ -53,10 +52,13 @@ function persistEncrypted(provider: ProviderId, apiKey: string) {
 }
 
 export function setKey(provider: ProviderId, apiKey: string) {
+  if (!safeStorage.isEncryptionAvailable()) {
+    throw new Error(
+      'Secure key storage is unavailable on this system. API keys cannot be saved in plaintext.',
+    )
+  }
   const store = readStore()
-  store[provider] = safeStorage.isEncryptionAvailable()
-    ? encodeEncrypted(apiKey)
-    : encodeRaw(apiKey)
+  store[provider] = encodeEncrypted(apiKey)
   writeStore(store)
 }
 
