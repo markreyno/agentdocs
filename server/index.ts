@@ -370,7 +370,16 @@ app.post('/api/chat', async (req, res) => {
   res.setHeader('Connection', 'keep-alive')
   res.flushHeaders?.()
 
+  const controller = new AbortController()
+  // Client gone mid-stream: stop burning Anthropic tokens (mirrors electron/ipc.cts cancel).
+  const onClientGone = () => {
+    if (!res.writableEnded) controller.abort()
+  }
+  req.on('close', onClientGone)
+  res.on('close', onClientGone)
+
   const send = (data: Record<string, unknown>) => {
+    if (controller.signal.aborted || res.writableEnded) return
     res.write(`data: ${JSON.stringify(data)}\n\n`)
   }
 
@@ -380,18 +389,25 @@ app.post('/api/chat', async (req, res) => {
     const convo: MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }))
 
     for (let iteration = 0; iteration < DEMO_MAX_TOOL_ITERATIONS; iteration++) {
-      const stream = anthropic.messages.stream({
-        model: DEMO_MODEL,
-        max_tokens: DEMO_MAX_TOKENS,
-        messages: convo,
-        ...(tree ? { tools: [...DOC_TOOLS] } : {}),
-      })
+      if (controller.signal.aborted) break
+
+      const stream = anthropic.messages.stream(
+        {
+          model: DEMO_MODEL,
+          max_tokens: DEMO_MAX_TOKENS,
+          messages: convo,
+          ...(tree ? { tools: [...DOC_TOOLS] } : {}),
+        },
+        { signal: controller.signal },
+      )
 
       stream.on('text', (delta) => {
         send({ text: delta })
       })
 
       const finalMessage = await stream.finalMessage()
+      if (controller.signal.aborted) break
+
       convo.push({ role: 'assistant', content: finalMessage.content })
 
       if (finalMessage.stop_reason !== 'tool_use' || !tree) break
@@ -410,13 +426,19 @@ app.post('/api/chat', async (req, res) => {
       convo.push({ role: 'user', content: toolResults })
     }
 
-    send({ done: true })
+    if (!controller.signal.aborted) send({ done: true })
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Unknown error contacting Claude'
-    send({ error: message })
+    if (!controller.signal.aborted) {
+      const message = err instanceof Error ? err.message : 'Unknown error contacting Claude'
+      send({ error: message })
+    }
   } finally {
-    res.write('data: [DONE]\n\n')
-    res.end()
+    req.off('close', onClientGone)
+    res.off('close', onClientGone)
+    if (!res.writableEnded) {
+      res.write('data: [DONE]\n\n')
+      res.end()
+    }
   }
 })
 
