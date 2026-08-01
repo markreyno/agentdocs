@@ -38,3 +38,12 @@ export const TEXT_ALIGNS = [
   { label: 'Align right', value: 'right' },
   { label: 'Justify', value: 'justify' },
 ] as const
+
+export const HIGHLIGHT_COLOR = '#ffec99'
+
+export const LINE_HEIGHTS = [
+  { label: 'Single', value: '1' },
+  { label: '1.15', value: '1.15' },
+  { label: '1.5', value: '1.5' },
+  { label: 'Double', value: '2' },
+] as const

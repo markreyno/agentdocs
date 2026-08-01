@@ -1,13 +1,16 @@
 import { Editor } from '@tiptap/react'
+import { useEffect, useReducer } from 'react'
 import { isDesktopApp } from '../lib/isDesktop'
 import { useTheme } from '../lib/theme'
 import { AlignmentDropdown } from './AlignmentDropdown'
 import { ClipboardGroup } from './ClipboardGroup'
 import { ColorDropdown } from './ColorDropdown'
+import { ExportDropdown } from './ExportDropdown'
 import { FindPopover } from './FindPopover'
 import { FontFamilyDropdown, FontSizeDropdown } from './FontDropdowns'
 import { HeadingDropdown } from './HeadingDropdown'
 import { BackIcon, BulletListIcon, Icon, MoonIcon, SettingsIcon, SunIcon } from './icons'
+import { MoreToolsDropdown } from './MoreToolsDropdown'
 import { OutlinePopover } from './OutlinePopover'
 import { Divider, ToolbarButton } from './ToolbarButton'
 
@@ -35,6 +38,19 @@ export default function Toolbar({
   const { theme, toggleTheme } = useTheme()
   const showDesktopControls = isDesktopApp()
 
+  // Tiptap v3 doesn't re-render on every transaction by default, so buttons
+  // reading editor.isActive()/getAttributes() during render (Bold, Font, Size,
+  // etc.) would otherwise show stale state until something else re-renders us.
+  const [, forceUpdate] = useReducer((count: number) => count + 1, 0)
+  useEffect(() => {
+    if (!editor) return
+    const update = () => forceUpdate()
+    editor.on('transaction', update)
+    return () => {
+      editor.off('transaction', update)
+    }
+  }, [editor])
+
   if (!editor) return null
 
   return (
@@ -48,6 +64,9 @@ export default function Toolbar({
           <Divider />
         </>
       )}
+
+      <ExportDropdown editor={editor} documentTitle={documentTitle} />
+      <Divider />
 
       <ClipboardGroup editor={editor} />
       <Divider />
@@ -77,6 +96,7 @@ export default function Toolbar({
       </ToolbarButton>
       <AlignmentDropdown editor={editor} />
       <HeadingDropdown editor={editor} />
+      <MoreToolsDropdown editor={editor} />
       <Divider />
 
       <FindPopover editor={editor} />

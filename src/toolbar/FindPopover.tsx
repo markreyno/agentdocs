@@ -4,6 +4,33 @@ import { FindIcon, Icon } from './icons'
 import { ToolbarButton } from './ToolbarButton'
 import { useClickOutside } from './useClickOutside'
 
+/**
+ * Flattens the doc's text nodes into a single searchable string, tracking the
+ * real ProseMirror position behind every character (including a synthetic '\n'
+ * separator inserted between adjacent blocks, whose own position doesn't
+ * matter since a search term can't legitimately contain a newline).
+ */
+function buildSearchIndex(editor: Editor): { text: string; positions: number[] } {
+  const chars: string[] = []
+  const positions: number[] = []
+  let prevEnd: number | null = null
+
+  editor.state.doc.descendants((node, pos) => {
+    if (!node.isText || !node.text) return
+    if (prevEnd !== null && pos !== prevEnd) {
+      chars.push('\n')
+      positions.push(pos)
+    }
+    for (let i = 0; i < node.text.length; i++) {
+      chars.push(node.text[i])
+      positions.push(pos + i)
+    }
+    prevEnd = pos + node.text.length
+  })
+
+  return { text: chars.join(''), positions }
+}
+
 export function FindPopover({ editor }: { editor: Editor }) {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
@@ -26,7 +53,7 @@ export function FindPopover({ editor }: { editor: Editor }) {
     const term = query.trim()
     if (!term) return
 
-    const docText = editor.state.doc.textBetween(0, editor.state.doc.content.size, '\n', ' ')
+    const { text: docText, positions } = buildSearchIndex(editor)
     const start = lastIndexRef.current
     let index = docText.toLowerCase().indexOf(term.toLowerCase(), start)
 
@@ -39,35 +66,12 @@ export function FindPopover({ editor }: { editor: Editor }) {
       return
     }
 
-    let from = 0
-    let to = 0
-    let cursor = 0
-    let found = false
+    const from = positions[index]
+    const to = positions[index + term.length - 1] + 1
 
-    editor.state.doc.descendants((node, pos) => {
-      if (found || !node.isText || !node.text) return
-
-      const nodeStart = cursor
-      const nodeEnd = cursor + node.text.length
-
-      if (index >= nodeStart && index < nodeEnd) {
-        const offset = index - nodeStart
-        from = pos + offset
-        to = from + term.length
-        found = true
-        return false
-      }
-
-      cursor = nodeEnd
-    })
-
-    if (found) {
-      editor.chain().focus().setTextSelection({ from, to }).scrollIntoView().run()
-      lastIndexRef.current = index + term.length
-      setStatus('')
-    } else {
-      setStatus('No results')
-    }
+    editor.chain().focus().setTextSelection({ from, to }).scrollIntoView().run()
+    lastIndexRef.current = index + term.length
+    setStatus('')
   }
 
   return (

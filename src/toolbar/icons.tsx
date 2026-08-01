@@ -16,6 +16,33 @@ export function BackIcon(props: SVGProps<SVGSVGElement>) {
   )
 }
 
+export function ExportIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M8.5 1.5a.5.5 0 0 0-1 0v7.793L5.354 7.146a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 9.293V1.5z" />
+      <path d="M2.5 10.5a.5.5 0 0 0-1 0V13a1.5 1.5 0 0 0 1.5 1.5h10A1.5 1.5 0 0 0 14.5 13v-2.5a.5.5 0 0 0-1 0V13a.5.5 0 0 1-.5.5H3a.5.5 0 0 1-.5-.5v-2.5z" />
+    </svg>
+  )
+}
+
+export function WordFileIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M9.5 1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5L9.5 1zM9 2.2 12.3 5.5H9V2.2zM4 14V2h4v4h4v8H4z" />
+      <path d="M5.2 7.2h1.1l.7 3.2.8-3.2h1.1l.8 3.2.7-3.2h1.1l-1.3 5.1H9.1L8.2 9l-.9 3.3H6.5L5.2 7.2z" />
+    </svg>
+  )
+}
+
+export function PdfFileIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M9.5 1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5L9.5 1zM9 2.2 12.3 5.5H9V2.2zM4 14V2h4v4h4v8H4z" />
+      <path d="M5 8.2h1.6c.9 0 1.5.5 1.5 1.3 0 .8-.6 1.3-1.5 1.3H5.7V12H5V8.2zm.7.6v1.4h.8c.5 0 .8-.2.8-.7s-.3-.7-.8-.7H5.7zM9 8.2h1.3c1.1 0 1.8.7 1.8 1.9S11.4 12 10.3 12H9V8.2zm.7.6V11h.6c.7 0 1.1-.4 1.1-1.3s-.4-1.3-1.1-1.3h-.6z" />
+    </svg>
+  )
+}
+
 export function PasteIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
@@ -131,5 +158,118 @@ export function ColorSwatch({ color }: { color: string }) {
       className="inline-block w-3 h-3 rounded-sm border border-gray-300 shrink-0"
       style={{ backgroundColor: color }}
     />
+  )
+}
+
+export function MoreIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <circle cx="3" cy="8" r="1.4" />
+      <circle cx="8" cy="8" r="1.4" />
+      <circle cx="13" cy="8" r="1.4" />
+    </svg>
+  )
+}
+
+export function UndoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M6.354 2.146a.5.5 0 0 1 0 .708L4.207 5H10a4 4 0 1 1 0 8H5a.5.5 0 0 1 0-1h5a3 3 0 1 0 0-6H4.207l2.147 2.146a.5.5 0 1 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 0 1 .708 0z" />
+    </svg>
+  )
+}
+
+export function RedoIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M9.646 2.146a.5.5 0 0 0 0 .708L11.793 5H6a4 4 0 1 0 0 8h5a.5.5 0 0 0 0-1H6a3 3 0 1 1 0-6h5.793L9.646 8.146a.5.5 0 1 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708 0z" />
+    </svg>
+  )
+}
+
+export function NumberedListIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M5 3.5h9v1H5v-1zm0 4h9v1H5v-1zm0 4h9v1H5v-1z" />
+      <text x="0.5" y="4.7" fontSize="4" fontFamily="sans-serif">1</text>
+      <text x="0.5" y="8.7" fontSize="4" fontFamily="sans-serif">2</text>
+      <text x="0.5" y="12.7" fontSize="4" fontFamily="sans-serif">3</text>
+    </svg>
+  )
+}
+
+export function BlockquoteIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M3 3.5h1.5v3A2.5 2.5 0 0 1 2 9v-1a1.5 1.5 0 0 0 1.5-1.5H3v-3zm5.5 0H10v3A2.5 2.5 0 0 1 7.5 9v-1A1.5 1.5 0 0 0 9 6.5h-.5v-3z" />
+      <path d="M3 11h10v1H3v-1zm0 2.5h7v1H3v-1z" />
+    </svg>
+  )
+}
+
+export function SceneBreakIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M2 7.5h3v1H2v-1zm4.5 0h3v1h-3v-1zM11 7.5h3v1h-3v-1z" />
+    </svg>
+  )
+}
+
+export function StrikeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M6.5 3c-1.6 0-2.8.9-2.8 2.2 0 1 .6 1.6 1.6 2h3.2c.7.2 1 .5 1 1 0 .7-.8 1.3-1.9 1.3-1.1 0-2-.5-2.3-1.3l-1 .4c.5 1.2 1.7 2 3.3 2 1.8 0 3-1 3-2.4 0-.6-.2-1.1-.6-1.5H12V6H2v.7h2.9c-.5-.4-.8-.9-.8-1.5 0-.8.8-1.4 1.9-1.4 1 0 1.8.5 2.1 1.2l1-.4C8.7 3.6 7.7 3 6.5 3z" />
+    </svg>
+  )
+}
+
+export function HighlightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M10.3 1.3a1 1 0 0 1 1.4 0l2 2a1 1 0 0 1 0 1.4L7.8 10.6l-3.4.7.7-3.4 5.2-5.2 .0-.4zM6.4 9.3l1.9 1.9-2.7.5.8-2.4z" />
+      <path d="M2 13.5h12v1H2v-1z" />
+    </svg>
+  )
+}
+
+export function IndentIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M2 3.5h12v1H2v-1zm5 3h7v1H7v-1zm0 3h7v1H7v-1zM2 12.5h12v1H2v-1zM2 6.3 5 8l-3 1.7V6.3z" />
+    </svg>
+  )
+}
+
+export function OutdentIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M2 3.5h12v1H2v-1zm5 3h7v1H7v-1zm0 3h7v1H7v-1zM2 12.5h12v1H2v-1zM5 6.3v3.4L2 8l3-1.7z" />
+    </svg>
+  )
+}
+
+export function ClearFormatIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M2.6 1.5h9.8v1.8H9.1L7.4 8.1h1.9l-.4 1.6H4.9l.4-1.6h1.9L8.9 3.3H4.4l-.5 1.6H2.2l.4-3.4z" />
+      <path d="M2.1 12.4 12.4 2.1l.9.9L3 13.3z" />
+    </svg>
+  )
+}
+
+export function CodeIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M5.4 3.3 1 8l4.4 4.7 .9-.8L2.7 8l3.6-3.9-.9-.8zm5.2 0-.9.8L13.3 8l-3.6 3.9.9.8L15 8l-4.4-4.7z" />
+    </svg>
+  )
+}
+
+export function LineHeightIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" width={16} height={16} {...props}>
+      <path d="M6 2.5h8v1H6v-1zm0 4.5h8v1H6V7zm0 4.5h8v1H6v-1z" />
+      <path d="M2.5 1.5 4.3 4H3.1v8H4.3l-1.8 2.5L.7 12H1.9V4H.7L2.5 1.5z" />
+    </svg>
   )
 }
