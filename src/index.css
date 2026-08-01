@@ -340,6 +340,69 @@ code {
   margin-top: 0;
 }
 
+/*
+ * Tailwind preflight zeros list-style/padding on ul/ol. Restore markers inside
+ * the editor so Bullets / Numbered list actually look like lists.
+ */
+.editor-content .tiptap ul,
+.editor-content .ProseMirror ul {
+  list-style: disc;
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.editor-content .tiptap ol,
+.editor-content .ProseMirror ol {
+  list-style: decimal;
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.editor-content .tiptap li,
+.editor-content .ProseMirror li {
+  margin: 0.15em 0;
+}
+
+.editor-content .tiptap li p,
+.editor-content .ProseMirror li p {
+  margin: 0;
+}
+
+.editor-content .tiptap blockquote,
+.editor-content .ProseMirror blockquote {
+  margin: 0.75em 0;
+  padding-left: 1em;
+  border-left: 3px solid color-mix(in srgb, var(--editor-text) 25%, transparent);
+  color: color-mix(in srgb, var(--editor-text) 80%, transparent);
+}
+
+.editor-content .tiptap hr,
+.editor-content .ProseMirror hr {
+  border: none;
+  border-top: 1px solid color-mix(in srgb, var(--editor-text) 20%, transparent);
+  margin: 1.5em 0;
+}
+
+.editor-content .tiptap pre,
+.editor-content .ProseMirror pre {
+  margin: 0.75em 0;
+  padding: 0.75em 1em;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--editor-text) 6%, transparent);
+  font-family: var(--mono);
+  font-size: 0.9em;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
+.editor-content .tiptap pre code,
+.editor-content .ProseMirror pre code {
+  padding: 0;
+  background: transparent;
+  font-size: inherit;
+  color: inherit;
+}
+
 /* Outlook-style ribbon toolbar */
 .outlook-ribbon {
   position: sticky;
@@ -435,6 +498,17 @@ code {
   border-radius: 2px;
   background: var(--ribbon-control-bg);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+/* Anchor to the trigger's right edge so menus near the ribbon end stay on-screen */
+.outlook-dropdown--end {
+  left: auto;
+  right: 0;
+}
+
+/* Lift the open menu above later ribbon siblings (Find/Outline, wrapped rows) */
+.outlook-dropdown-open {
+  z-index: 40;
 }
 
 .outlook-dropdown-item {

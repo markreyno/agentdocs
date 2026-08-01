@@ -1,5 +1,5 @@
 import { Editor } from '@tiptap/react'
-import { useRef, useState } from 'react'
+import { useRef, useState, type MouseEvent as ReactMouseEvent } from 'react'
 import { HIGHLIGHT_COLOR, LINE_HEIGHTS } from './constants'
 import {
   BlockquoteIcon,
@@ -17,7 +17,6 @@ import {
   StrikeIcon,
   UndoIcon,
 } from './icons'
-import { keepEditorSelection } from './keepEditorSelection'
 import { ToolbarButton } from './ToolbarButton'
 import { useClickOutside } from './useClickOutside'
 
@@ -36,25 +35,31 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
   const currentLineHeight = editor.getAttributes('textStyle').lineHeight as string | undefined
   const isHighlighted = editor.getAttributes('textStyle').backgroundColor === HIGHLIGHT_COLOR
 
-  const runAndClose = (fn: () => void) => {
+  /**
+   * Run the command on mousedown (TipTap toolbar pattern): preventDefault keeps
+   * the editor selection, and doing the work here avoids relying on a follow-up
+   * click that some browsers suppress after a canceled mousedown.
+   */
+  const runMenuAction = (event: ReactMouseEvent, fn: () => void) => {
+    event.preventDefault()
+    if ((event.currentTarget as HTMLButtonElement).disabled) return
     fn()
     setOpen(false)
   }
 
   return (
-    <div ref={containerRef} className="relative">
+    <div ref={containerRef} className={`relative${open ? ' outlook-dropdown-open' : ''}`}>
       <ToolbarButton label="More tools" isActive={open} onClick={() => setOpen((prev) => !prev)}>
         <Icon><MoreIcon /></Icon>
       </ToolbarButton>
 
       {open && (
-        <div role="menu" aria-label="More formatting tools" className="outlook-dropdown">
+        <div role="menu" aria-label="More formatting tools" className="outlook-dropdown outlook-dropdown--end">
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             disabled={!editor.can().undo()}
-            onClick={() => runAndClose(() => editor.chain().focus().undo().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().undo().run())}
             className="outlook-dropdown-item"
           >
             <Icon size={14}><UndoIcon /></Icon>
@@ -63,9 +68,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             disabled={!editor.can().redo()}
-            onClick={() => runAndClose(() => editor.chain().focus().redo().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().redo().run())}
             className="outlook-dropdown-item"
           >
             <Icon size={14}><RedoIcon /></Icon>
@@ -77,9 +81,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             aria-pressed={editor.isActive('orderedList')}
-            onClick={() => runAndClose(() => editor.chain().focus().toggleOrderedList().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().toggleOrderedList().run())}
             className={`outlook-dropdown-item ${editor.isActive('orderedList') ? 'outlook-dropdown-item-active' : ''}`}
           >
             <Icon size={14}><NumberedListIcon /></Icon>
@@ -88,9 +91,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             aria-pressed={editor.isActive('blockquote')}
-            onClick={() => runAndClose(() => editor.chain().focus().toggleBlockquote().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().toggleBlockquote().run())}
             className={`outlook-dropdown-item ${editor.isActive('blockquote') ? 'outlook-dropdown-item-active' : ''}`}
           >
             <Icon size={14}><BlockquoteIcon /></Icon>
@@ -99,8 +101,7 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
-            onClick={() => runAndClose(() => editor.chain().focus().setHorizontalRule().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().setHorizontalRule().run())}
             className="outlook-dropdown-item"
           >
             <Icon size={14}><SceneBreakIcon /></Icon>
@@ -109,9 +110,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             aria-pressed={editor.isActive('strike')}
-            onClick={() => runAndClose(() => editor.chain().focus().toggleStrike().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().toggleStrike().run())}
             className={`outlook-dropdown-item ${editor.isActive('strike') ? 'outlook-dropdown-item-active' : ''}`}
           >
             <Icon size={14}><StrikeIcon /></Icon>
@@ -120,10 +120,9 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             aria-pressed={isHighlighted}
-            onClick={() =>
-              runAndClose(() => {
+            onMouseDown={(e) =>
+              runMenuAction(e, () => {
                 if (isHighlighted) {
                   editor.chain().focus().unsetBackgroundColor().run()
                 } else {
@@ -139,9 +138,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             aria-pressed={editor.isActive('codeBlock')}
-            onClick={() => runAndClose(() => editor.chain().focus().toggleCodeBlock().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().toggleCodeBlock().run())}
             className={`outlook-dropdown-item ${editor.isActive('codeBlock') ? 'outlook-dropdown-item-active' : ''}`}
           >
             <Icon size={14}><CodeIcon /></Icon>
@@ -153,9 +151,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             disabled={!editor.can().sinkListItem('listItem')}
-            onClick={() => runAndClose(() => editor.chain().focus().sinkListItem('listItem').run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().sinkListItem('listItem').run())}
             className="outlook-dropdown-item"
           >
             <Icon size={14}><IndentIcon /></Icon>
@@ -164,9 +161,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
             disabled={!editor.can().liftListItem('listItem')}
-            onClick={() => runAndClose(() => editor.chain().focus().liftListItem('listItem').run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().liftListItem('listItem').run())}
             className="outlook-dropdown-item"
           >
             <Icon size={14}><OutdentIcon /></Icon>
@@ -175,8 +171,7 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
           <button
             type="button"
             role="menuitem"
-            onMouseDown={keepEditorSelection}
-            onClick={() => runAndClose(() => editor.chain().focus().unsetAllMarks().run())}
+            onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().unsetAllMarks().run())}
             className="outlook-dropdown-item"
           >
             <Icon size={14}><ClearFormatIcon /></Icon>
@@ -190,9 +185,8 @@ export function MoreToolsDropdown({ editor }: { editor: Editor }) {
               key={value}
               type="button"
               role="menuitem"
-              onMouseDown={keepEditorSelection}
               aria-pressed={currentLineHeight === value}
-              onClick={() => runAndClose(() => editor.chain().focus().setLineHeight(value).run())}
+              onMouseDown={(e) => runMenuAction(e, () => editor.chain().focus().setLineHeight(value).run())}
               className={`outlook-dropdown-item ${currentLineHeight === value ? 'outlook-dropdown-item-active' : ''}`}
             >
               <Icon size={14}><LineHeightIcon /></Icon>
