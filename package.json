@@ -1,7 +1,7 @@
 {
   "name": "agentdocs",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.1",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
@@ -35,9 +35,9 @@
     },
     "win": {
       "target": [
-        "nsis",
-        "portable"
-      ]
+        "nsis"
+      ],
+      "artifactName": "${productName}-Setup.${ext}"
     }
   },
   "dependencies": {
@@ -67,7 +67,7 @@
     "concurrently": "^10.0.3",
     "cross-env": "^10.1.0",
     "electron": "^41.7.1",
-    "electron-builder": "^26.15.3",
+    "electron-builder": "^26.13.0",
     "tsx": "^4.23.0",
     "typescript": "~5.8.3",
     "vite": "^6.3.5",

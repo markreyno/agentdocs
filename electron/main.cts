@@ -19,7 +19,7 @@ function createWindow() {
   if (isDev) {
     win.loadURL(process.env.ELECTRON_START_URL ?? 'http://localhost:5173')
   } else {
-    win.loadFile(path.join(__dirname, '../dist/index.html'))
+    win.loadFile(path.join(app.getAppPath(), 'dist', 'index.html'))
   }
 }
 

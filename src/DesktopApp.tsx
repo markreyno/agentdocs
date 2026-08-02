@@ -1,11 +1,10 @@
 import { useEffect, useState } from 'react'
 import DesktopHomePage from './DesktopHomePage'
 import TiptapEditor from './TiptapEditor'
-import UserDashboard from './UserDashboard'
 import { ensureOllamaWhenSelected } from './lib/ollama'
 import { getActiveProvider } from './lib/providerSettings'
 
-type Page = 'home' | 'editor' | 'account'
+type Page = 'home' | 'editor'
 
 export default function DesktopApp() {
   const [page, setPage] = useState<Page>('home')
@@ -17,16 +16,6 @@ export default function DesktopApp() {
     }
   }, [])
 
-  if (page === 'account') {
-    return (
-      <UserDashboard
-        variant="desktop"
-        onBack={() => setPage('home')}
-        onOpenEditor={() => setPage('home')}
-      />
-    )
-  }
-
   if (page === 'editor' && activeDocumentId) {
     return (
       <div className="min-h-screen bg-[var(--editor-canvas)] flex flex-col">
@@ -37,7 +26,6 @@ export default function DesktopApp() {
 
   return (
     <DesktopHomePage
-      onOpenAccount={() => setPage('account')}
       onNewDocument={(documentId) => {
         setActiveDocumentId(documentId)
         setPage('editor')

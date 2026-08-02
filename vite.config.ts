@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
+  // Relative asset URLs so the packaged Electron app can load via file://
+  base: './',
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {

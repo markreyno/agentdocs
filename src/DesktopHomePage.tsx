@@ -4,7 +4,6 @@ import {
   formatRelativeTime,
   getOrCreateUser,
   listRecentDocuments,
-  updateUserDisplayName,
   type DocumentRecord,
   type LocalUser,
 } from './lib/documents'
@@ -13,11 +12,10 @@ import ProviderSettingsPanel from './ProviderSettingsPanel'
 interface DesktopHomePageProps {
   onNewDocument: (documentId: string) => void
   onOpenDocument: (documentId: string) => void
-  onOpenAccount: () => void
 }
 
-export default function DesktopHomePage({ onNewDocument, onOpenDocument, onOpenAccount }: DesktopHomePageProps) {
-  const [user, setUser] = useState<LocalUser>(() => getOrCreateUser())
+export default function DesktopHomePage({ onNewDocument, onOpenDocument }: DesktopHomePageProps) {
+  const [user] = useState<LocalUser>(() => getOrCreateUser())
   const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(user.id))
   const [showSettings, setShowSettings] = useState(false)
 
@@ -31,11 +29,6 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument, onOpenA
     onNewDocument(doc.id)
   }
 
-  const handleNameBlur = (value: string) => {
-    const updated = updateUserDisplayName(value)
-    setUser(updated)
-  }
-
   return (
     <div className="desktop-home">
       <header className="desktop-home-header">
@@ -44,17 +37,6 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument, onOpenA
           <button type="button" onClick={() => setShowSettings(true)} className="desktop-home-user-label cursor-pointer">
             Model providers
           </button>
-          <button type="button" onClick={onOpenAccount} className="desktop-home-account-btn">
-            Account
-          </button>
-          <span className="desktop-home-user-label">Signed in as</span>
-          <input
-            type="text"
-            defaultValue={user.displayName}
-            onBlur={(e) => handleNameBlur(e.target.value)}
-            aria-label="Your name"
-            className="desktop-home-user-name"
-          />
         </div>
       </header>
 
