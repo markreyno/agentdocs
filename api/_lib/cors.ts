@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { getAllowedOrigins } from './config'
+import { getAllowedOrigins } from './config.js'
 
 function requestOrigin(req: VercelRequest): string | undefined {
   const origin = req.headers.origin

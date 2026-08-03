@@ -28,3 +28,5 @@ future_features.md
 *.njsproj
 *.sln
 *.sw?
+.vercel
+.env*

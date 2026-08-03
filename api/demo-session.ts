@@ -1,9 +1,9 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { DEMO_ENABLED } from './_lib/config'
-import { enforceAllowedOrigin, handleOptions } from './_lib/cors'
-import { assertStoreAvailable } from './_lib/redis'
-import { getClientIp } from './_lib/request'
-import { getServerEpoch, mintSession, remainingForIp } from './_lib/store'
+import { DEMO_ENABLED } from './_lib/config.js'
+import { enforceAllowedOrigin, handleOptions } from './_lib/cors.js'
+import { assertStoreAvailable } from './_lib/redis.js'
+import { getClientIp } from './_lib/request.js'
+import { getServerEpoch, mintSession, remainingForIp } from './_lib/store.js'
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (handleOptions(req, res)) return

@@ -1,4 +1,4 @@
-import { searchSentences, type DocNode } from './docTree'
+import { searchSentences, type DocNode } from './docTree.js'
 
 export interface ReplaceTextInput {
   find?: string

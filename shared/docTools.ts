@@ -1,16 +1,16 @@
-import { getNode, searchOutline, searchSentences, type DocNode } from './docTree'
+import { getNode, searchOutline, searchSentences, type DocNode } from './docTree.js'
 import {
   isRendererDocTool,
   proposeReplaceInTree,
   RENDERER_DOC_TOOLS,
-} from './editTools'
+} from './editTools.js'
 import {
   getStoryBlocksFromTree,
   proposeInsertBlocksInTree,
   proposeReplaceStoryInTree,
   type InsertBlocksInput,
   type ReplaceStoryInput,
-} from './storyEdit'
+} from './storyEdit.js'
 
 /** Tool schemas exposing docTree search/lookup and edit tools to the model. */
 export const DOC_TOOLS = [

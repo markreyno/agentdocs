@@ -6,11 +6,11 @@
 import 'dotenv/config'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import chat from '../api/chat'
-import demoSession from '../api/demo-session'
-import demoStatus from '../api/demo-status'
-import { DEMO_ENABLED, DEMO_MODEL, DEMO_MAX_TOKENS, DEMO_MAX_TOOL_ITERATIONS, getAllowedOrigins } from '../api/_lib/config'
-import { getRedis } from '../api/_lib/redis'
+import chat from '../api/chat.js'
+import demoSession from '../api/demo-session.js'
+import demoStatus from '../api/demo-status.js'
+import { DEMO_ENABLED, DEMO_MODEL, DEMO_MAX_TOKENS, DEMO_MAX_TOOL_ITERATIONS, getAllowedOrigins } from '../api/_lib/config.js'
+import { getRedis } from '../api/_lib/redis.js'
 
 const PORT = process.env.API_PORT ? Number(process.env.API_PORT) : 8787
 

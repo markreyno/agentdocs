@@ -6,8 +6,8 @@ import {
   DEMO_SESSION_TTL_MS,
   DEMO_USAGE_TTL_MS,
   secondsFromMs,
-} from './config'
-import { getRedis } from './redis'
+} from './config.js'
+import { getRedis } from './redis.js'
 
 export interface DemoSession {
   token: string

@@ -1,8 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import type { JSONContent } from '@tiptap/core'
-import { buildDocTree } from '../../shared/docTree'
-import { DOC_TOOLS, executeDocTool } from '../../shared/docTools'
+import { buildDocTree } from '../../shared/docTree.js'
+import { DOC_TOOLS, executeDocTool } from '../../shared/docTools.js'
 import {
   DEMO_ENABLED,
   DEMO_MAX_MESSAGES,
@@ -10,7 +10,7 @@ import {
   DEMO_MAX_TOKENS,
   DEMO_MAX_TOOL_ITERATIONS,
   DEMO_MODEL,
-} from './config'
+} from './config.js'
 
 export interface ChatMessage {
   role: 'user' | 'assistant'

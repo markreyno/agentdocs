@@ -1,15 +1,15 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import type { JSONContent } from '@tiptap/core'
-import { getAnthropic, runDemoChat, validateChatMessages } from './_lib/chat'
+import { getAnthropic, runDemoChat, validateChatMessages } from './_lib/chat.js'
 import {
   DEMO_ENABLED,
   DEMO_MAX_MESSAGE_CHARS,
   DEMO_MAX_MESSAGES,
-} from './_lib/config'
-import { enforceAllowedOrigin, handleOptions } from './_lib/cors'
-import { getBearerToken, getClientIp } from './_lib/request'
-import { assertStoreAvailable } from './_lib/redis'
-import { resolveSession, tryConsumeDemoUse } from './_lib/store'
+} from './_lib/config.js'
+import { enforceAllowedOrigin, handleOptions } from './_lib/cors.js'
+import { getBearerToken, getClientIp } from './_lib/request.js'
+import { assertStoreAvailable } from './_lib/redis.js'
+import { resolveSession, tryConsumeDemoUse } from './_lib/store.js'
 
 export const config = {
   maxDuration: 60,

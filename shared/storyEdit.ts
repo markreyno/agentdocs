@@ -1,6 +1,6 @@
 import type { JSONContent } from '@tiptap/core'
-import type { DocNode } from './docTree'
-import type { ReplaceHunk, ReplaceTextResult } from './editTools'
+import type { DocNode } from './docTree.js'
+import type { ReplaceHunk, ReplaceTextResult } from './editTools.js'
 
 export type StoryBlockKind = 'heading' | 'paragraph'
 
