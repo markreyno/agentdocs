@@ -813,6 +813,32 @@ code {
   color: var(--home-muted);
 }
 
+.desktop-home-update-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 24px;
+  background: color-mix(in srgb, var(--home-accent, #4f46e5) 12%, var(--home-surface));
+  border-bottom: 1px solid var(--home-border);
+  font-size: 13px;
+  color: var(--home-text);
+}
+
+.desktop-home-update-action {
+  border: 1px solid var(--home-border);
+  background: var(--home-surface);
+  color: var(--home-text);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.desktop-home-update-action:hover {
+  background: var(--home-bg);
+}
+
 .desktop-home-main {
   flex: 1;
   max-width: 960px;

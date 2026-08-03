@@ -92,6 +92,15 @@ function streamChat(
   }
 }
 
+type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'not-available'; version: string }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string }
+
 contextBridge.exposeInMainWorld('agentdocs', {
   platform: process.platform,
   providers: {
@@ -112,5 +121,16 @@ contextBridge.exposeInMainWorld('agentdocs', {
   },
   shell: {
     openExternal: (url: string): Promise<void> => ipcRenderer.invoke('shell:openExternal', url),
+  },
+  updater: {
+    getVersion: (): Promise<string> => ipcRenderer.invoke('updater:getVersion'),
+    getStatus: (): Promise<UpdateStatus> => ipcRenderer.invoke('updater:getStatus'),
+    check: (): Promise<UpdateStatus> => ipcRenderer.invoke('updater:check'),
+    install: (): Promise<void> => ipcRenderer.invoke('updater:install'),
+    onStatus: (callback: (status: UpdateStatus) => void): (() => void) => {
+      const listener = (_event: unknown, status: UpdateStatus) => callback(status)
+      ipcRenderer.on('updater:status', listener)
+      return () => ipcRenderer.removeListener('updater:status', listener)
+    },
   },
 })

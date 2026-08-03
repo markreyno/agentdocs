@@ -8,6 +8,15 @@ import {
 } from './lib/documents'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 
+type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'not-available'; version: string }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string }
+
 interface DesktopHomePageProps {
   onNewDocument: (documentId: string) => void
   onOpenDocument: (documentId: string) => void
@@ -17,10 +26,21 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
   const [userId] = useState(() => getOrCreateUser().id)
   const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(userId))
   const [showSettings, setShowSettings] = useState(false)
+  const [appVersion, setAppVersion] = useState<string | null>(null)
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
 
   useEffect(() => {
     setDocuments(listRecentDocuments(userId))
   }, [userId])
+
+  useEffect(() => {
+    const updater = window.agentdocs?.updater
+    if (!updater) return
+
+    void updater.getVersion().then(setAppVersion)
+    void updater.getStatus().then(setUpdateStatus)
+    return updater.onStatus(setUpdateStatus)
+  }, [])
 
   const handleNewDocument = () => {
     const doc = createDocument(userId)
@@ -28,16 +48,30 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
     onNewDocument(doc.id)
   }
 
+  const handleCheckUpdates = () => {
+    void window.agentdocs?.updater.check()
+  }
+
+  const handleInstallUpdate = () => {
+    void window.agentdocs?.updater.install()
+  }
+
   return (
     <div className="desktop-home">
       <header className="desktop-home-header">
         <span className="desktop-home-logo">agentdocs</span>
         <div className="desktop-home-user">
+          {appVersion && <span className="desktop-home-user-label">v{appVersion}</span>}
           <button type="button" onClick={() => setShowSettings(true)} className="desktop-home-user-label cursor-pointer">
             Model providers
           </button>
+          <button type="button" onClick={handleCheckUpdates} className="desktop-home-user-label cursor-pointer">
+            Check for updates
+          </button>
         </div>
       </header>
+
+      <UpdateBanner status={updateStatus} onInstall={handleInstallUpdate} onDismiss={() => setUpdateStatus({ state: 'idle' })} />
 
       {showSettings && <ProviderSettingsPanel onClose={() => setShowSettings(false)} />}
 
@@ -86,6 +120,58 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
           )}
         </section>
       </main>
+    </div>
+  )
+}
+
+function UpdateBanner({
+  status,
+  onInstall,
+  onDismiss,
+}: {
+  status: UpdateStatus
+  onInstall: () => void
+  onDismiss: () => void
+}) {
+  if (status.state === 'idle') return null
+
+  let message: string | null = null
+  let action: { label: string; onClick: () => void } | null = null
+
+  switch (status.state) {
+    case 'checking':
+      message = 'Checking for updates…'
+      break
+    case 'available':
+      message = `Update ${status.version} available — downloading…`
+      break
+    case 'downloading':
+      message = `Downloading update… ${Math.round(status.percent)}%`
+      break
+    case 'downloaded':
+      message = `Update ${status.version} ready to install.`
+      action = { label: 'Restart now', onClick: onInstall }
+      break
+    case 'not-available':
+      message = `You're on the latest version (${status.version}).`
+      action = { label: 'Dismiss', onClick: onDismiss }
+      break
+    case 'error':
+      message = `Update check failed: ${status.message}`
+      action = { label: 'Dismiss', onClick: onDismiss }
+      break
+  }
+
+  if (!message) return null
+
+  return (
+    <div className="desktop-home-update-banner" role="status">
+      <span>{message}</span>
+      {action && (
+        <button type="button" onClick={action.onClick} className="desktop-home-update-action">
+          {action.label}
+        </button>
+      )}
     </div>
   )
 }

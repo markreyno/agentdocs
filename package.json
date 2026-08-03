@@ -1,7 +1,7 @@
 {
   "name": "agentdocs",
   "private": true,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "main": "dist-electron/main.cjs",
   "scripts": {
@@ -14,6 +14,7 @@
     "build:electron": "tsc -b tsconfig.electron.json",
     "dist:mac": "npm run build:shared && npm run build && npm run build:electron && electron-builder --mac",
     "dist:win": "npm run build:shared && npm run build && npm run build:electron && electron-builder --win",
+    "dist:win:publish": "npm run dist:win -- --publish always",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -29,6 +30,13 @@
     "directories": {
       "output": "release"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "markreyno",
+        "repo": "agentdocs"
+      }
+    ],
     "mac": {
       "target": "dmg",
       "category": "public.app-category.productivity"
@@ -52,6 +60,7 @@
     "@upstash/redis": "^1.38.1",
     "diff-match-patch": "^1.0.5",
     "dotenv": "^17.4.2",
+    "electron-updater": "^6.8.9",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "tailwindcss": "^4.3.2",

@@ -2,6 +2,7 @@ import { app, BrowserWindow } from 'electron'
 import path from 'node:path'
 import { registerIpcHandlers } from './ipc.cjs'
 import { stopOllamaIfSpawned } from './ollamaService.cjs'
+import { registerUpdaterHandlers, setupAutoUpdater } from './updater.cjs'
 
 const isDev = !app.isPackaged
 
@@ -25,7 +26,9 @@ function createWindow() {
 
 app.whenReady().then(() => {
   registerIpcHandlers()
+  registerUpdaterHandlers()
   createWindow()
+  setupAutoUpdater()
 })
 
 app.on('before-quit', () => {

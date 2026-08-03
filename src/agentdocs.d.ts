@@ -3,6 +3,15 @@ import type { ProviderDescriptor, ProviderId } from './lib/providers'
 
 export {}
 
+type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'checking' }
+  | { state: 'available'; version: string }
+  | { state: 'not-available'; version: string }
+  | { state: 'downloading'; percent: number }
+  | { state: 'downloaded'; version: string }
+  | { state: 'error'; message: string }
+
 interface ChatStreamHandlers {
   onDelta: (text: string) => void
   onDone: () => void
@@ -44,6 +53,13 @@ declare global {
       }
       shell: {
         openExternal: (url: string) => Promise<void>
+      }
+      updater: {
+        getVersion: () => Promise<string>
+        getStatus: () => Promise<UpdateStatus>
+        check: () => Promise<UpdateStatus>
+        install: () => Promise<void>
+        onStatus: (callback: (status: UpdateStatus) => void) => () => void
       }
     }
   }
