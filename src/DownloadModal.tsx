@@ -1,11 +1,13 @@
-import { openDesktopDownload } from './lib/desktopDownload'
 import { DEMO_USAGE_LIMIT } from './lib/demoUsage'
+import { useRequestDesktopDownload } from './lib/downloadAgreement'
 
 interface DownloadModalProps {
   onClose?: () => void
 }
 
 export default function DownloadModal({ onClose }: DownloadModalProps) {
+  const requestDesktopDownload = useRequestDesktopDownload()
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] font-sans p-4">
       <div className="bg-white dark:bg-[#1f2028] rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
@@ -23,7 +25,7 @@ export default function DownloadModal({ onClose }: DownloadModalProps) {
         <div className="px-6 pb-6 flex flex-col sm:flex-row gap-2">
           <button
             type="button"
-            onClick={openDesktopDownload}
+            onClick={requestDesktopDownload}
             className="flex-1 bg-indigo-600 text-white text-sm font-medium rounded-lg py-2.5 px-4 cursor-pointer hover:bg-indigo-700 transition-colors"
           >
             Download desktop app

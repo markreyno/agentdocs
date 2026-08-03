@@ -2,7 +2,10 @@ import { useEffect, useState } from 'react'
 import LandingPage from './LandingPage'
 import LearnPage from './LearnPage'
 import TiptapEditor from './TiptapEditor'
-import { openDesktopDownload } from './lib/desktopDownload'
+import {
+  DownloadAgreementProvider,
+  useRequestDesktopDownload,
+} from './lib/downloadAgreement'
 
 // SignInPage / dashboard are intentionally unwired for MVP (learn, demo, download only).
 type Page = 'landing' | 'learn' | 'editor'
@@ -23,7 +26,16 @@ function hashForPage(page: Page): string {
 }
 
 export default function WebApp() {
+  return (
+    <DownloadAgreementProvider>
+      <WebAppRoutes />
+    </DownloadAgreementProvider>
+  )
+}
+
+function WebAppRoutes() {
   const [page, setPage] = useState<Page>(() => pageFromHash() ?? 'landing')
+  const requestDesktopDownload = useRequestDesktopDownload()
 
   useEffect(() => {
     const onHashChange = () => {
@@ -62,7 +74,7 @@ export default function WebApp() {
     <LandingPage
       onGetStarted={() => setPage('editor')}
       onLearn={() => setPage('learn')}
-      onDownload={openDesktopDownload}
+      onDownload={requestDesktopDownload}
     />
   )
 }

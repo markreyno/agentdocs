@@ -5,7 +5,6 @@ import {
   getOrCreateUser,
   listRecentDocuments,
   type DocumentRecord,
-  type LocalUser,
 } from './lib/documents'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 
@@ -15,17 +14,17 @@ interface DesktopHomePageProps {
 }
 
 export default function DesktopHomePage({ onNewDocument, onOpenDocument }: DesktopHomePageProps) {
-  const [user] = useState<LocalUser>(() => getOrCreateUser())
-  const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(user.id))
+  const [userId] = useState(() => getOrCreateUser().id)
+  const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(userId))
   const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
-    setDocuments(listRecentDocuments(user.id))
-  }, [user.id])
+    setDocuments(listRecentDocuments(userId))
+  }, [userId])
 
   const handleNewDocument = () => {
-    const doc = createDocument(user.id)
-    setDocuments(listRecentDocuments(user.id))
+    const doc = createDocument(userId)
+    setDocuments(listRecentDocuments(userId))
     onNewDocument(doc.id)
   }
 
@@ -44,7 +43,7 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
 
       <main className="desktop-home-main">
         <section className="desktop-home-hero">
-          <h1 className="desktop-home-title">Welcome back, {user.displayName}</h1>
+          <h1 className="desktop-home-title">Your documents</h1>
           <p className="desktop-home-subtitle">Pick up where you left off or start something new.</p>
           <button type="button" onClick={handleNewDocument} className="desktop-home-new-btn">
             <span className="desktop-home-new-icon" aria-hidden="true">+</span>

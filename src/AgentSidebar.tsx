@@ -19,7 +19,7 @@ import {
   setDemoUseCountToLimit,
 } from './lib/demoUsage'
 import { isDesktopApp } from './lib/isDesktop'
-import { openDesktopDownload } from './lib/desktopDownload'
+import { useRequestDesktopDownload } from './lib/downloadAgreement'
 import { findSkill, parseSlashCommand, resolveSkillTemplate, useSkills } from './lib/skills'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 
@@ -97,6 +97,7 @@ export default function AgentSidebar({
   agentLocked = false,
   onDemoLimitReached,
 }: AgentSidebarProps) {
+  const requestDesktopDownload = useRequestDesktopDownload()
   const { skills, customSkills, addSkill, removeSkill } = useSkills()
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [input, setInput] = useState('')
@@ -465,7 +466,7 @@ export default function AgentSidebar({
         />
         <button
           type={agentLocked ? 'button' : 'submit'}
-          onClick={agentLocked ? openDesktopDownload : undefined}
+          onClick={agentLocked ? requestDesktopDownload : undefined}
           disabled={!agentLocked && (loading || !input.trim())}
           className="mt-2 w-full bg-indigo-600 text-white text-sm rounded-md py-1.5 cursor-pointer hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed"
         >
