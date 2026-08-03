@@ -35,11 +35,36 @@ const DEFAULT_ORIGINS = [
   'http://127.0.0.1:5183',
 ]
 
+/** Strip optional wrapping quotes from a single env value. */
+function stripQuotes(value: string): string {
+  const trimmed = value.trim()
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim()
+  }
+  return trimmed
+}
+
+/** Current Vercel deployment / production hostnames as https origins. */
+function vercelOrigins(): string[] {
+  const hosts = [process.env.VERCEL_URL, process.env.VERCEL_PROJECT_PRODUCTION_URL]
+  const origins: string[] = []
+  for (const host of hosts) {
+    const value = host?.trim()
+    if (!value) continue
+    origins.push(value.startsWith('http://') || value.startsWith('https://') ? value : `https://${value}`)
+  }
+  return origins
+}
+
 export function getAllowedOrigins(): Set<string> {
-  const raw = process.env.DEMO_ALLOWED_ORIGINS?.trim()
-    ? process.env.DEMO_ALLOWED_ORIGINS.split(',')
-    : DEFAULT_ORIGINS
-  return new Set(raw.map((o) => o.trim()).filter(Boolean))
+  const fromEnv = process.env.DEMO_ALLOWED_ORIGINS?.trim()
+    ? process.env.DEMO_ALLOWED_ORIGINS.split(',').map(stripQuotes).filter(Boolean)
+    : []
+  // Always allow local defaults + this Vercel deployment; merge any extra origins from env.
+  return new Set([...DEFAULT_ORIGINS, ...vercelOrigins(), ...fromEnv])
 }
 
 export function secondsFromMs(ms: number): number {
