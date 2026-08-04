@@ -40,7 +40,7 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
   })
   const [activeProvider, setActive] = useState<ProviderId>(getActiveProvider())
   const [keyInputs, setKeyInputs] = useState<Partial<Record<ProviderId, string>>>({})
-  const [ollamaModels, setOllamaModels] = useState<string[]>([])
+  const [ollamaModels, setOllamaModels] = useState<{ name: string; supportsTools: boolean }[]>([])
   const [savedNotice, setSavedNotice] = useState<ProviderId | null>(null)
   const [promptCaching, setPromptCaching] = useState<Partial<Record<CachableProviderId, boolean>>>(() => {
     const initial: Partial<Record<CachableProviderId, boolean>> = {}
@@ -176,32 +176,7 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
                     )}
                   </div>
                 ) : (
-                  <div className="text-xs text-gray-500">
-                    {ollamaModels.length > 0 ? (
-                      <>
-                        Detected local models: {ollamaModels.join(', ')}{' '}
-                        <button
-                          type="button"
-                          onClick={() => void refreshOllamaModels()}
-                          className="text-indigo-600 cursor-pointer"
-                        >
-                          refresh
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        No local models found. Run <code className="font-mono">ollama pull llama3.2</code> and{' '}
-                        <button
-                          type="button"
-                          onClick={() => void refreshOllamaModels()}
-                          className="text-indigo-600 cursor-pointer"
-                        >
-                          refresh
-                        </button>
-                        .
-                      </>
-                    )}
-                  </div>
+                  <OllamaModelsList models={ollamaModels} onRefresh={() => void refreshOllamaModels()} />
                 )}
 
                 {isCachable(provider.id) && (
@@ -220,6 +195,52 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
       </div>
     </div>,
     document.body,
+  )
+}
+
+function OllamaModelsList({
+  models,
+  onRefresh,
+}: {
+  models: { name: string; supportsTools: boolean }[]
+  onRefresh: () => void
+}) {
+  const RefreshButton = (
+    <button type="button" onClick={onRefresh} className="text-indigo-600 cursor-pointer">
+      refresh
+    </button>
+  )
+
+  if (models.length === 0) {
+    return (
+      <div className="text-xs text-gray-500">
+        No local models found. Run <code className="font-mono">ollama pull llama3.2</code> and {RefreshButton}.
+      </div>
+    )
+  }
+
+  const withTools = models.filter((m) => m.supportsTools)
+  const withoutTools = models.filter((m) => !m.supportsTools)
+
+  return (
+    <div className="text-xs text-gray-500 space-y-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span>Detected local models</span>
+        {RefreshButton}
+      </div>
+      {withTools.length > 0 && (
+        <div>
+          <p className="font-medium text-gray-700">Tool calling</p>
+          <p className="text-gray-500">{withTools.map((m) => m.name).join(', ')}</p>
+        </div>
+      )}
+      {withoutTools.length > 0 && (
+        <div>
+          <p className="font-medium text-gray-700">No tool calling</p>
+          <p className="text-gray-500">{withoutTools.map((m) => m.name).join(', ')}</p>
+        </div>
+      )}
+    </div>
   )
 }
 

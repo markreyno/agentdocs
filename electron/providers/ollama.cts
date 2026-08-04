@@ -230,12 +230,44 @@ export const streamOllama: ProviderStreamFn = async ({
   }
 }
 
-export async function listOllamaModels(): Promise<string[]> {
+export interface OllamaModelInfo {
+  name: string
+  supportsTools: boolean
+}
+
+async function modelSupportsTools(name: string): Promise<boolean> {
+  try {
+    const response = await fetch(`${OLLAMA_BASE_URL}/api/show`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: name }),
+    })
+    if (!response.ok) return false
+    const data = (await response.json()) as { capabilities?: string[] }
+    return Array.isArray(data.capabilities) && data.capabilities.includes('tools')
+  } catch {
+    return false
+  }
+}
+
+export async function listOllamaModels(): Promise<OllamaModelInfo[]> {
   try {
     const response = await fetch(`${OLLAMA_BASE_URL}/api/tags`)
     if (!response.ok) return []
-    const data = (await response.json()) as { models?: { name: string }[] }
-    return data.models?.map((m) => m.name) ?? []
+    const data = (await response.json()) as {
+      models?: { name: string; capabilities?: string[] }[]
+    }
+    const models = data.models ?? []
+    return Promise.all(
+      models.map(async (m) => {
+        // Trust a positive tools signal from /api/tags. When missing or absent,
+        // ask /api/show — tags can omit tools for some models.
+        if (Array.isArray(m.capabilities) && m.capabilities.includes('tools')) {
+          return { name: m.name, supportsTools: true }
+        }
+        return { name: m.name, supportsTools: await modelSupportsTools(m.name) }
+      }),
+    )
   } catch {
     return []
   }

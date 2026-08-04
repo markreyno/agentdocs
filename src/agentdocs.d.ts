@@ -36,7 +36,7 @@ declare global {
       }
       ollama: {
         ensureRunning: () => Promise<{ started: boolean; available: boolean }>
-        models: () => Promise<string[]>
+        models: () => Promise<{ name: string; supportsTools: boolean }[]>
       }
       chat: {
         stream: (

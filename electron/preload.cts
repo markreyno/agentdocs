@@ -114,7 +114,8 @@ contextBridge.exposeInMainWorld('agentdocs', {
   ollama: {
     ensureRunning: (): Promise<{ started: boolean; available: boolean }> =>
       ipcRenderer.invoke('ollama:ensure'),
-    models: (): Promise<string[]> => ipcRenderer.invoke('ollama:models'),
+    models: (): Promise<{ name: string; supportsTools: boolean }[]> =>
+      ipcRenderer.invoke('ollama:models'),
   },
   chat: {
     stream: streamChat,
