@@ -10,43 +10,63 @@ type LearnSection = {
   title: string
   body: string
   examples?: { cmd: string; desc: string }[]
+  /** Shown as a dashed placeholder until a real screenshot is added. */
+  imagePlaceholder?: string
   kind?: 'guide' | 'example'
 }
 
 const sections: LearnSection[] = [
   {
-    slug: 'open-editor',
-    title: 'Open the editor',
-    body: 'Click "Open Demo" or "Get Started" from the home page. You land on a clean, paginated canvas — like a word processor, built for long-form writing.',
+    slug: 'what-is-agentdocs',
+    title: 'What is agentdocs?',
+    body: 'agentdocs is an AI-native writing environment for authors. It combines a distraction-free, paginated manuscript editor with a sidebar agent that works on your draft — not a chat bolted on after the fact. Download the desktop app to write locally, connect your own model providers, or run entirely offline with Ollama.',
   },
   {
-    slug: 'write-draft',
-    title: 'Write your draft',
-    body: 'Use the toolbar for headings, lists, alignment, fonts, and colors. The editor grows page by page as you write — no manual page breaks.',
+    slug: 'open-editor',
+    title: 'Download the app',
+    body: 'On the website, click Download in the top navigation. Accept the agreement when prompted, then install the desktop build for your platform. After install, launch agentdocs to reach the document home screen.',
+    imagePlaceholder: 'Screenshot: Download button on the landing page',
+  },
+  {
+    slug: 'desktop-home',
+    title: 'Desktop home',
+    body: 'The home screen lists Your documents. Click New document to start a blank manuscript, or open anything under Recent documents. Use Model providers in the header to connect Anthropic, OpenAI, Gemini, or Ollama. Check for updates appears in the same header when you want to look for a newer build.',
+    imagePlaceholder: 'Screenshot: Desktop home — documents list and New document',
+  },
+  {
+    slug: 'document-page',
+    title: 'The document page',
+    body: 'Opening a document takes you to the editor. Use Back in the ribbon to return home. Rename the piece in the title field in the toolbar. Format with headings, lists, fonts, and colors; Find and Outline help you move around; Export saves to Word or PDF. Pages grow as you write — no manual page breaks. Click +agent when you want the sidebar co-writer.',
+    imagePlaceholder: 'Screenshot: Document editor with toolbar and page canvas',
   },
   {
     slug: 'open-agent',
     title: 'Open the AI agent',
-    body: 'Click the agent button in the toolbar to open the sidebar. The AI sees your full document and any text you have selected.',
+    body: 'Click +agent in the toolbar to open the sidebar. The agent sees your full document and any text you have selected, so it can summarize, rewrite, brainstorm, or critique in context.',
   },
   {
     slug: 'slash-commands',
     title: 'Use slash commands',
-    body: 'Type a slash command in the agent chat to run built-in skills on your selection:',
+    body: 'In the agent chat, type / to pick a skill, or enter a command directly. Built-in skills run on your selection (or the whole document if nothing is selected):',
     examples: [
       { cmd: '/summarize', desc: 'Condense selected text (or the whole doc if nothing is selected)' },
-      { cmd: '/changetone formal', desc: 'Rewrite selection in a different tone' },
+      { cmd: '/changetone formal', desc: 'Rewrite the selection in a different tone (try casual, suspenseful, lyrical…)' },
     ],
   },
   {
     slug: 'ask-freely',
     title: 'Ask freely',
-    body: 'You can also type any question or instruction — "expand this paragraph", "suggest a stronger opening", "check grammar in the selection". The agent responds in the sidebar; copy or adapt what you need back into the document.',
+    body: 'You can also type any instruction — “expand this paragraph”, “suggest a stronger opening”, “flag plot holes in this scene”. The agent replies in the sidebar; adapt what you need back into the manuscript.',
+  },
+  {
+    slug: 'custom-skills',
+    title: 'Create custom skills',
+    body: 'Every author’s workflow is different. From the agent sidebar, open skill management to add your own slash commands — name, description, and a prompt template using {{selection}}, {{document}}, and {{args}}. Save once, reuse forever (e.g. /shorten, /critique-pacing).',
   },
   {
     slug: 'example-workflow',
     title: 'Example workflow',
-    body: 'Here is a short walkthrough of rewriting a passage with a tone skill.',
+    body: 'A short walkthrough: select a passage, open the agent, and rewrite it with a tone skill.',
     kind: 'example',
   },
 ]
@@ -162,6 +182,18 @@ export default function LearnPage({ onBack, onGetStarted }: LearnPageProps) {
             <p className="text-sm sm:text-[15px] text-gray-400 font-sans leading-relaxed mb-8">
               {section.body}
             </p>
+
+            {section.imagePlaceholder && (
+              <div
+                className="mb-10 flex aspect-video w-full items-center justify-center rounded-xl border border-dashed border-white/20 bg-white/3 px-6 text-center"
+                role="img"
+                aria-label={section.imagePlaceholder}
+              >
+                <p className="text-xs sm:text-sm font-sans text-gray-500 leading-relaxed">
+                  {section.imagePlaceholder}
+                </p>
+              </div>
+            )}
 
             {section.examples && (
               <ul className="mb-10 space-y-3">
