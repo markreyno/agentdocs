@@ -42,7 +42,7 @@ const sections: LearnSection[] = [
   {
     slug: 'open-agent',
     title: 'Open the AI agent',
-    body: 'Click +agent in the toolbar to open the sidebar. The agent sees your full document and any text you have selected, so it can summarize, rewrite, brainstorm, or critique in context.',
+    body: 'Click +agent in the toolbar to open the sidebar. The agent can search your manuscript on demand and uses any text you have selected, so it can summarize, rewrite, brainstorm, or critique without loading the whole document every turn.',
   },
   {
     slug: 'slash-commands',
@@ -51,6 +51,7 @@ const sections: LearnSection[] = [
     examples: [
       { cmd: '/summarize', desc: 'Condense selected text (or the whole doc if nothing is selected)' },
       { cmd: '/changetone formal', desc: 'Rewrite the selection in a different tone (try casual, suspenseful, lyrical…)' },
+      { cmd: '/clear', desc: 'Clear the agent chat and start a fresh conversation' },
     ],
   },
   {

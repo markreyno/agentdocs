@@ -1,10 +1,15 @@
-/** Builds the manuscript context block attached to freeform agent chat turns. */
+/** Builds the agent prompt for freeform chat without inlining the full manuscript. */
 export function withDocumentContext(
   userRequest: string,
   ctx: { selection: string; document: string },
 ): string {
   const sections: string[] = [
-    `You are a writing assistant embedded in a text editor. Use the manuscript context below when answering or rewriting.
+    `You are a writing assistant embedded in a text editor.
+
+The manuscript is available through tools — do NOT assume you have already read it.
+- Use search_outline first to find relevant chapters/scenes.
+- Use search_sentences or get_node to read only the passages you need.
+- Use get_story_blocks only when you must list or rewrite the whole story structure.
 
 When the user asks you to edit, rewrite, improve, fix, or change manuscript text:
 - If they have a Current selection, call replace_text with only the replace field (omit find).
@@ -18,11 +23,15 @@ When the user asks you to edit, rewrite, improve, fix, or change manuscript text
 - Only tell the user an edit is ready for review after replace_text or replace_story returned status "proposed". After insert_blocks returns status "applied", tell the user the new blocks were inserted (they can Undo). Searching alone (search_sentences, get_story_blocks) does not change the document — if a tool returned an error or not_found, say so and do not claim an edit succeeded.
 - Never say you created, wrote, or inserted manuscript content unless you actually called insert_blocks (or replace_*) in this turn. Agreeing in chat text alone does not change the document.
 
-When the user asks a question or wants brainstorming (not an edit), answer normally in plain text.`,
+When the user asks a question or wants brainstorming (not an edit), answer normally in plain text. Fetch manuscript context with tools only when you need it.`,
   ]
 
-  const document = ctx.document.trim()
-  sections.push(document ? `Manuscript:\n"""\n${document}\n"""` : 'Manuscript: (empty)')
+  const hasDocument = Boolean(ctx.document.trim())
+  sections.push(
+    hasDocument
+      ? 'Manuscript: available via tools (search_outline, search_sentences, get_node, get_story_blocks).'
+      : 'Manuscript: (empty)',
+  )
 
   const selection = ctx.selection.trim()
   if (selection) {

@@ -9,8 +9,13 @@ export interface Skill {
 }
 
 export const CREATE_SKILL_COMMAND = 'create-skill'
+export const CLEAR_COMMAND = 'clear'
 
 export const META_COMMANDS = [
+  {
+    name: CLEAR_COMMAND,
+    description: 'Clear the agent chat and start a fresh conversation',
+  },
   {
     name: CREATE_SKILL_COMMAND,
     description: 'Create a skill from a plain-language description',
@@ -86,12 +91,31 @@ const STOP_WORDS = new Set([
   'your',
 ])
 
+/** Strip legacy full-document embedding from saved custom skill templates. */
+export function stripEmbeddedDocumentFromTemplate(template: string): string {
+  if (!template.includes('{{document}}')) return template
+
+  const withoutDoc = template
+    .replace(/\n*Full document for context:\n\{\{document\}\}\s*/g, '\n')
+    .replaceAll('{{document}}', '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trimEnd()
+
+  if (withoutDoc.includes('Do not assume the full manuscript')) return withoutDoc
+
+  return `${withoutDoc}\n\nDo not assume the full manuscript is in this message. Use search_outline, search_sentences, get_node, or get_story_blocks when you need document context.`
+}
+
 function loadCustomSkills(): Skill[] {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return []
     const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
+    if (!Array.isArray(parsed)) return []
+    return parsed.map((skill: Skill) => ({
+      ...skill,
+      template: stripEmbeddedDocumentFromTemplate(skill.template ?? ''),
+    }))
   } catch {
     return []
   }
@@ -154,7 +178,11 @@ export function parseCreateSkillInput(args: string): { name?: string; definition
   const match = trimmed.match(/^([a-z][\w-]{1,31})(?:\s+|:\s*)(.+)$/s)
   if (match) {
     const candidate = match[1]
-    if (candidate !== CREATE_SKILL_COMMAND && !STOP_WORDS.has(candidate)) {
+    if (
+      candidate !== CREATE_SKILL_COMMAND &&
+      candidate !== CLEAR_COMMAND &&
+      !STOP_WORDS.has(candidate)
+    ) {
       return { name: candidate, definition: match[2].trim() }
     }
   }
@@ -174,6 +202,7 @@ export function suggestSkillName(definition: string, takenNames: string[] = []):
 
   const taken = new Set(takenNames.map((n) => n.toLowerCase()))
   taken.add(CREATE_SKILL_COMMAND)
+  taken.add(CLEAR_COMMAND)
 
   if (!taken.has(base)) return base
 
@@ -201,8 +230,7 @@ export function buildSkillFromDefinition(
     'Selected text (if any):',
     '{{selection}}',
     '',
-    'Full document for context:',
-    '{{document}}',
+    'Do not assume the full manuscript is in this message. Use search_outline, search_sentences, get_node, or get_story_blocks when you need document context.',
   ].join('\n')
 
   return { name, description, template }

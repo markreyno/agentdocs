@@ -1,4 +1,4 @@
-import type { Skill } from '../../lib/skills'
+import { META_COMMANDS, type Skill } from '../../lib/skills'
 
 interface SkillsSectionProps {
   skills: Skill[]
@@ -9,6 +9,23 @@ interface SkillsSectionProps {
 export function SkillsSection({ skills, customSkills, onRemoveSkill }: SkillsSectionProps) {
   return (
     <div className="space-y-6">
+      <section>
+        <h2 className="text-sm font-sans font-semibold text-white mb-3">Commands</h2>
+        <ul className="rounded-xl border border-white/8 overflow-hidden divide-y divide-white/8">
+          {META_COMMANDS.map((command) => (
+            <li key={command.name} className="px-4 py-3 bg-white/[0.02]">
+              <div className="flex items-center gap-2 mb-1">
+                <code className="text-xs font-mono text-indigo-300">/{command.name}</code>
+                <span className="text-[10px] font-sans uppercase tracking-wider text-gray-500">
+                  Built-in
+                </span>
+              </div>
+              <p className="text-sm font-sans text-gray-400">{command.description}</p>
+            </li>
+          ))}
+        </ul>
+      </section>
+
       <section>
         <h2 className="text-sm font-sans font-semibold text-white mb-3">Built-in skills</h2>
         <ul className="rounded-xl border border-white/8 overflow-hidden divide-y divide-white/8">

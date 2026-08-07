@@ -24,12 +24,21 @@ async function readErrorMessage(response: Response, fallback: string): Promise<s
   return fallback
 }
 
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException
+    ? err.name === 'AbortError'
+    : err instanceof Error && err.name === 'AbortError'
+}
+
 /** Streams a chat completion from /api/chat, parsing the server's SSE frames. */
 export async function streamChat(
   messages: ChatMessage[],
   { onDelta, onDone, onError, onToolUse, onRateLimited }: StreamChatHandlers,
   documentJson?: unknown,
+  signal?: AbortSignal,
 ) {
+  if (signal?.aborted) return
+
   let token = await ensureDemoSessionToken()
   if (!token) {
     onError('Could not start a demo session. Is the API server running?')
@@ -45,12 +54,14 @@ export async function streamChat(
       },
       credentials: 'same-origin',
       body: JSON.stringify({ messages, documentJson }),
+      signal,
     })
 
   let response: Response
   try {
     response = await postChat(token)
-  } catch {
+  } catch (err) {
+    if (isAbortError(err) || signal?.aborted) return
     onError('Could not reach the AI server. Is it running?')
     return
   }
@@ -65,11 +76,14 @@ export async function streamChat(
     }
     try {
       response = await postChat(token)
-    } catch {
+    } catch (err) {
+      if (isAbortError(err) || signal?.aborted) return
       onError('Could not reach the AI server. Is it running?')
       return
     }
   }
+
+  if (signal?.aborted) return
 
   if (response.status === 429) {
     onRateLimited?.()
@@ -108,36 +122,46 @@ export async function streamChat(
   const decoder = new TextDecoder()
   let buffer = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buffer += decoder.decode(value, { stream: true })
-
-    const lines = buffer.split('\n\n')
-    buffer = lines.pop() ?? ''
-
-    for (const line of lines) {
-      const dataLine = line.split('\n').find((l) => l.startsWith('data: '))
-      if (!dataLine) continue
-      const payload = dataLine.slice('data: '.length)
-      if (payload === '[DONE]') {
-        onDone()
+  try {
+    while (true) {
+      if (signal?.aborted) {
+        await reader.cancel()
         return
       }
-      try {
-        const parsed = JSON.parse(payload)
-        if (parsed.error) {
-          onError(parsed.error)
-        } else if (typeof parsed.text === 'string') {
-          onDelta(parsed.text)
-        } else if (typeof parsed.tool === 'string') {
-          onToolUse?.(parsed.tool, parsed.input)
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+
+      const lines = buffer.split('\n\n')
+      buffer = lines.pop() ?? ''
+
+      for (const line of lines) {
+        const dataLine = line.split('\n').find((l) => l.startsWith('data: '))
+        if (!dataLine) continue
+        const payload = dataLine.slice('data: '.length)
+        if (payload === '[DONE]') {
+          if (!signal?.aborted) onDone()
+          return
         }
-      } catch {
-        // ignore malformed frame
+        try {
+          const parsed = JSON.parse(payload)
+          if (signal?.aborted) return
+          if (parsed.error) {
+            onError(parsed.error)
+          } else if (typeof parsed.text === 'string') {
+            onDelta(parsed.text)
+          } else if (typeof parsed.tool === 'string') {
+            onToolUse?.(parsed.tool, parsed.input)
+          }
+        } catch {
+          // ignore malformed frame
+        }
       }
     }
-  }
 
-  onDone()
+    if (!signal?.aborted) onDone()
+  } catch (err) {
+    if (isAbortError(err) || signal?.aborted) return
+    throw err
+  }
 }

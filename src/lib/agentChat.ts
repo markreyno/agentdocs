@@ -28,24 +28,26 @@ function isCachableProvider(provider: string): provider is CachableProviderId {
 /**
  * Routes agent chat through the desktop provider bridge when running in Electron, or the demo server on the web.
  * `documentJson` builds a doc tree server-side and exposes search/edit tools to the model.
+ * Returns a cancel function that aborts the in-flight request so providers stop generating.
  */
-export async function sendChatMessage(
+export function sendChatMessage(
   messages: ChatMessage[],
   handlers: SendChatHandlers,
   documentJson?: unknown,
   options?: SendChatOptions,
-) {
+): () => void {
   if (isDesktopApp()) {
     const provider = getActiveProvider()
     const model = getModelFor(provider)
     const promptCaching = isCachableProvider(provider) ? getPromptCachingEnabled(provider) : false
-    window.agentdocs!.chat.stream(provider, model, messages, handlers, {
+    return window.agentdocs!.chat.stream(provider, model, messages, handlers, {
       promptCaching,
       documentJson,
       executeRendererTool: options?.executeRendererTool,
     })
-    return
   }
 
-  await streamChat(messages, handlers, documentJson)
+  const controller = new AbortController()
+  void streamChat(messages, handlers, documentJson, controller.signal)
+  return () => controller.abort()
 }

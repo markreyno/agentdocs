@@ -21,6 +21,7 @@ import {
 import { isDesktopApp } from './lib/isDesktop'
 import { useRequestDesktopDownload } from './lib/downloadAgreement'
 import {
+  CLEAR_COMMAND,
   CREATE_SKILL_COMMAND,
   META_COMMANDS,
   buildSkillFromDefinition,
@@ -117,6 +118,8 @@ export default function AgentSidebar({
   const [showProviderSettings, setShowProviderSettings] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const assistantDraftRef = useRef('')
+  const chatSessionRef = useRef(0)
+  const cancelChatRef = useRef<(() => void) | null>(null)
 
   if (!open) return null
 
@@ -191,6 +194,7 @@ export default function AgentSidebar({
     }
 
     const takenNames = [
+      CLEAR_COMMAND,
       CREATE_SKILL_COMMAND,
       ...skills.map((s) => s.name),
     ]
@@ -225,12 +229,32 @@ export default function AgentSidebar({
     setShowManageSkills(true)
   }
 
+  function handleClearChat() {
+    cancelChatRef.current?.()
+    cancelChatRef.current = null
+    chatSessionRef.current += 1
+    setMessages([])
+    setInput('')
+    setErrorText(null)
+    setToolStatus(null)
+    setLoading(false)
+    assistantDraftRef.current = ''
+    inputRef.current?.focus()
+  }
+
   async function handleSend(e: FormEvent) {
     e.preventDefault()
     const raw = input.trim()
-    if (!raw || loading) return
+    if (!raw) return
 
     const command = parseSlashCommand(raw)
+    if (command?.name.toLowerCase() === CLEAR_COMMAND) {
+      handleClearChat()
+      return
+    }
+
+    if (loading) return
+
     if (command?.name.toLowerCase() === CREATE_SKILL_COMMAND) {
       handleCreateSkill(raw, command.args)
       return
@@ -266,12 +290,22 @@ export default function AgentSidebar({
     assistantDraftRef.current = ''
     editor?.commands.rejectReview()
 
-    const apiMessages: ChatMessage[] = nextMessages.map((m) => ({ role: m.role, content: m.content }))
+    // Prior turns use display text so old sessions don't re-send full manuscripts.
+    // The latest user turn keeps the expanded prompt (tools / skill template).
+    const lastIdx = nextMessages.length - 1
+    const apiMessages: ChatMessage[] = nextMessages.map((m, i) => ({
+      role: m.role,
+      content: i < lastIdx && m.role === 'user' && m.display ? m.display : m.content,
+    }))
 
-    await sendChatMessage(
+    const session = chatSessionRef.current
+
+    cancelChatRef.current?.()
+    cancelChatRef.current = sendChatMessage(
       apiMessages,
       {
         onDelta: (delta) => {
+          if (session !== chatSessionRef.current) return
           setToolStatus(null)
           assistantDraftRef.current += delta
           setMessages((prev) => {
@@ -282,6 +316,7 @@ export default function AgentSidebar({
           })
         },
         onToolUse: (name, input) => {
+          if (session !== chatSessionRef.current) return
           setToolStatus(formatToolStatus(name, input))
           // Open the inline review as soon as the model calls an edit tool.
           // Desktop also applies via executeRendererTool; applyReplaceInEditor is idempotent.
@@ -297,6 +332,8 @@ export default function AgentSidebar({
           }
         },
         onDone: () => {
+          if (session !== chatSessionRef.current) return
+          cancelChatRef.current = null
           const dumped = parseDumpedToolCall(assistantDraftRef.current)
           if (dumped?.name === 'replace_text') {
             trackReplaceTextReview(dumped.arguments)
@@ -346,12 +383,15 @@ export default function AgentSidebar({
           }
         },
         onError: (message) => {
+          if (session !== chatSessionRef.current) return
+          cancelChatRef.current = null
           editor?.commands.rejectReview()
           setToolStatus(null)
           setErrorText(message)
           setLoading(false)
         },
         onRateLimited: () => {
+          if (session !== chatSessionRef.current) return
           if (isDemoMode) {
             setDemoUseCountToLimit()
             onDemoLimitReached?.()
@@ -360,8 +400,12 @@ export default function AgentSidebar({
       },
       editor?.getJSON(),
       {
-        executeRendererTool: async (name, input) =>
-          executeRendererDocTool(editor, name, input, getSelectionRange(editor)),
+        executeRendererTool: async (name, input) => {
+          if (session !== chatSessionRef.current) {
+            return { status: 'error', message: 'Chat was cleared' }
+          }
+          return executeRendererDocTool(editor, name, input, getSelectionRange(editor))
+        },
       },
     )
   }
@@ -415,10 +459,12 @@ export default function AgentSidebar({
             what it should do.
           </p>
           <ul className="space-y-1">
-            <li className="text-gray-600 dark:text-gray-400">
-              <span className="font-mono text-indigo-600 dark:text-indigo-400">/create-skill</span> —{' '}
-              {META_COMMANDS[0].description}
-            </li>
+            {META_COMMANDS.map((c) => (
+              <li key={c.name} className="text-gray-600 dark:text-gray-400">
+                <span className="font-mono text-indigo-600 dark:text-indigo-400">/{c.name}</span> —{' '}
+                {c.description}
+              </li>
+            ))}
             {skills.map((s) => (
               <li key={s.id} className="flex items-center justify-between text-gray-600 dark:text-gray-400">
                 <span>
@@ -442,7 +488,8 @@ export default function AgentSidebar({
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         {messages.length === 0 && (
           <p className="text-xs text-gray-400">
-            Ask a question, use <span className="font-mono">/summarize</span>, or create a skill with{' '}
+            Ask a question, use <span className="font-mono">/summarize</span>,{' '}
+            <span className="font-mono">/clear</span> to start fresh, or create a skill with{' '}
             <span className="font-mono">/create-skill</span>.
             {isDemoMode && !agentLocked && (
               <>
