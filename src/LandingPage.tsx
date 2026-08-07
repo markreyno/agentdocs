@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useTheme } from './lib/theme'
 
 interface LandingPageProps {
@@ -7,10 +7,7 @@ interface LandingPageProps {
   onDownload?: () => void
 }
 
-const HERO_VIDEOS = {
-  dark: '/videos/hero-dark.mp4',
-  light: '/videos/hero-light.mp4',
-} as const
+const HERO_VIDEO = '/videos/hero-dark.mov'
 
 const sections = [
   {
@@ -37,7 +34,8 @@ const sections = [
 
 function SectionVideo({ slug, isDark }: { slug: string; isDark: boolean }) {
   const [failed, setFailed] = useState(false)
-  const src = `/videos/section-${slug}.mp4`
+  const filename = `section-${slug}.mov`
+  const src = `/videos/${filename}`
 
   return (
     <div
@@ -59,7 +57,7 @@ function SectionVideo({ slug, isDark }: { slug: string; isDark: boolean }) {
       ) : (
         <div className="absolute inset-0 flex items-center justify-center px-4 text-center font-sans">
           <p className={`text-xs opacity-70 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Add <code className="font-mono">section-{slug}.mp4</code>
+            Add <code className="font-mono">{filename}</code>
           </p>
         </div>
       )}
@@ -68,23 +66,7 @@ function SectionVideo({ slug, isDark }: { slug: string; isDark: boolean }) {
 }
 
 function HeroDemoVideo({ isDark }: { isDark: boolean }) {
-  const darkRef = useRef<HTMLVideoElement>(null)
-  const lightRef = useRef<HTMLVideoElement>(null)
-  const [failed, setFailed] = useState({ dark: false, light: false })
-
-  const activeFailed = isDark ? failed.dark : failed.light
-  const placeholderFile = isDark ? 'hero-dark.mp4' : 'hero-light.mp4'
-
-  useEffect(() => {
-    const active = isDark ? darkRef.current : lightRef.current
-    const inactive = isDark ? lightRef.current : darkRef.current
-    inactive?.pause()
-    if (active) {
-      void active.play().catch(() => {
-        // Autoplay can be blocked; muted + playsInline usually allows it.
-      })
-    }
-  }, [isDark, failed.dark, failed.light])
+  const [failed, setFailed] = useState(false)
 
   return (
     <div
@@ -93,32 +75,18 @@ function HeroDemoVideo({ isDark }: { isDark: boolean }) {
       }`}
       aria-hidden
     >
-      <video
-        ref={darkRef}
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
-          isDark && !failed.dark ? 'opacity-100' : 'opacity-0'
-        }`}
-        src={HERO_VIDEOS.dark}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        onError={() => setFailed((prev) => (prev.dark ? prev : { ...prev, dark: true }))}
-      />
-      <video
-        ref={lightRef}
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
-          !isDark && !failed.light ? 'opacity-100' : 'opacity-0'
-        }`}
-        src={HERO_VIDEOS.light}
-        autoPlay
-        muted
-        loop
-        playsInline
-        preload="metadata"
-        onError={() => setFailed((prev) => (prev.light ? prev : { ...prev, light: true }))}
-      />
+      {!failed && (
+        <video
+          className="absolute inset-0 h-full w-full object-cover"
+          src={HERO_VIDEO}
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="metadata"
+          onError={() => setFailed(true)}
+        />
+      )}
 
       {/* Scrim so headline stays readable over the demo */}
       <div
@@ -129,13 +97,13 @@ function HeroDemoVideo({ isDark }: { isDark: boolean }) {
         }`}
       />
 
-      {activeFailed && (
+      {failed && (
         <p
           className={`absolute bottom-4 left-1/2 -translate-x-1/2 text-xs font-sans opacity-60 ${
             isDark ? 'text-gray-400' : 'text-gray-600'
           }`}
         >
-          Add <code className="font-mono">{placeholderFile}</code> to{' '}
+          Add <code className="font-mono">hero-dark.mov</code> to{' '}
           <code className="font-mono">public/videos/</code>
         </p>
       )}
