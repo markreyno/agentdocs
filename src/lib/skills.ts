@@ -8,6 +8,15 @@ export interface Skill {
   template: string
 }
 
+export const CREATE_SKILL_COMMAND = 'create-skill'
+
+export const META_COMMANDS = [
+  {
+    name: CREATE_SKILL_COMMAND,
+    description: 'Create a skill from a plain-language description',
+  },
+] as const
+
 export const BUILT_IN_SKILLS: Skill[] = [
   {
     id: 'summarize',
@@ -24,6 +33,58 @@ export const BUILT_IN_SKILLS: Skill[] = [
 ]
 
 const STORAGE_KEY = 'agentdocs.customSkills'
+
+const STOP_WORDS = new Set([
+  'a',
+  'an',
+  'and',
+  'are',
+  'as',
+  'at',
+  'be',
+  'by',
+  'can',
+  'could',
+  'current',
+  'do',
+  'does',
+  'for',
+  'from',
+  'give',
+  'her',
+  'his',
+  'how',
+  'i',
+  'if',
+  'in',
+  'into',
+  'is',
+  'it',
+  'its',
+  'just',
+  'like',
+  'me',
+  'my',
+  'of',
+  'on',
+  'or',
+  'please',
+  'should',
+  'so',
+  'that',
+  'the',
+  'then',
+  'this',
+  'to',
+  'want',
+  'when',
+  'where',
+  'will',
+  'with',
+  'would',
+  'you',
+  'your',
+])
 
 function loadCustomSkills(): Skill[] {
   try {
@@ -80,4 +141,69 @@ export function resolveSkillTemplate(
     .replaceAll('{{selection}}', vars.selection || vars.document)
     .replaceAll('{{document}}', vars.document)
     .replaceAll('{{args}}', vars.args)
+}
+
+/**
+ * Optional explicit name: `/create-skill character-arch I want…` or `/create-skill character-arch: I want…`
+ * Name must be lowercase command-style so sentence starters like "I want…" stay in the definition.
+ */
+export function parseCreateSkillInput(args: string): { name?: string; definition: string } {
+  const trimmed = args.trim()
+  if (!trimmed) return { definition: '' }
+
+  const match = trimmed.match(/^([a-z][\w-]{1,31})(?:\s+|:\s*)(.+)$/s)
+  if (match) {
+    const candidate = match[1]
+    if (candidate !== CREATE_SKILL_COMMAND && !STOP_WORDS.has(candidate)) {
+      return { name: candidate, definition: match[2].trim() }
+    }
+  }
+
+  return { definition: trimmed }
+}
+
+export function suggestSkillName(definition: string, takenNames: string[] = []): string {
+  const words = definition
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length > 2 && !STOP_WORDS.has(w))
+
+  const picked = (words.length >= 2 ? words.slice(-2) : words.slice(0, 3)).slice(0, 3)
+  let base = (picked.join('-') || 'custom-skill').slice(0, 32)
+
+  const taken = new Set(takenNames.map((n) => n.toLowerCase()))
+  taken.add(CREATE_SKILL_COMMAND)
+
+  if (!taken.has(base)) return base
+
+  let n = 2
+  while (taken.has(`${base}-${n}`)) n += 1
+  return `${base}-${n}`.slice(0, 32)
+}
+
+export function buildSkillFromDefinition(
+  definition: string,
+  options: { name?: string; takenNames?: string[] } = {},
+): Omit<Skill, 'id'> {
+  const name = options.name ?? suggestSkillName(definition, options.takenNames)
+  const description =
+    definition.length > 120 ? `${definition.slice(0, 117).trimEnd()}…` : definition
+
+  const template = [
+    'Follow this custom skill defined by the author:',
+    '',
+    definition.trim(),
+    '',
+    'Use any extra input from the user as the subject or arguments for this skill:',
+    '{{args}}',
+    '',
+    'Selected text (if any):',
+    '{{selection}}',
+    '',
+    'Full document for context:',
+    '{{document}}',
+  ].join('\n')
+
+  return { name, description, template }
 }

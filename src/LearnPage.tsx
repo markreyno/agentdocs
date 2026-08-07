@@ -61,7 +61,7 @@ const sections: LearnSection[] = [
   {
     slug: 'custom-skills',
     title: 'Create custom skills',
-    body: 'Every author’s workflow is different. From the agent sidebar, open skill management to add your own slash commands — name, description, and a prompt template using {{selection}}, {{document}}, and {{args}}. Save once, reuse forever (e.g. /shorten, /critique-pacing).',
+    body: 'Every author’s workflow is different. In the agent chat, type /create-skill followed by what you want the skill to do — for example “/create-skill I want to give you a character name and you explain his current character arc to me”. Agentdocs saves it as a reusable slash command (you can also set the name: “/create-skill character-arc …”).',
   },
   {
     slug: 'example-workflow',

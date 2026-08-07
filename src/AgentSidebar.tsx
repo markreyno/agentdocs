@@ -20,7 +20,16 @@ import {
 } from './lib/demoUsage'
 import { isDesktopApp } from './lib/isDesktop'
 import { useRequestDesktopDownload } from './lib/downloadAgreement'
-import { findSkill, parseSlashCommand, resolveSkillTemplate, useSkills } from './lib/skills'
+import {
+  CREATE_SKILL_COMMAND,
+  META_COMMANDS,
+  buildSkillFromDefinition,
+  findSkill,
+  parseCreateSkillInput,
+  parseSlashCommand,
+  resolveSkillTemplate,
+  useSkills,
+} from './lib/skills'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 
 interface DisplayMessage {
@@ -106,9 +115,6 @@ export default function AgentSidebar({
   const [toolStatus, setToolStatus] = useState<string | null>(null)
   const [showManageSkills, setShowManageSkills] = useState(false)
   const [showProviderSettings, setShowProviderSettings] = useState(false)
-  const [newSkillName, setNewSkillName] = useState('')
-  const [newSkillDescription, setNewSkillDescription] = useState('')
-  const [newSkillTemplate, setNewSkillTemplate] = useState('')
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const assistantDraftRef = useRef('')
 
@@ -117,7 +123,12 @@ export default function AgentSidebar({
   const slashCommand = parseSlashCommand(input)
   const isTypingCommandName = slashCommand !== null && !input.includes(' ')
   const suggestions = isTypingCommandName
-    ? skills.filter((s) => s.name.toLowerCase().startsWith(slashCommand!.name.toLowerCase()))
+    ? [
+        ...META_COMMANDS.filter((c) =>
+          c.name.toLowerCase().startsWith(slashCommand!.name.toLowerCase()),
+        ),
+        ...skills.filter((s) => s.name.toLowerCase().startsWith(slashCommand!.name.toLowerCase())),
+      ]
     : []
 
   function applySuggestion(name: string) {
@@ -163,10 +174,67 @@ export default function AgentSidebar({
     }
   }
 
+  function handleCreateSkill(raw: string, args: string) {
+    const { name: explicitName, definition } = parseCreateSkillInput(args)
+    if (!definition) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: raw, display: raw },
+        {
+          role: 'assistant',
+          content:
+            'To create a skill, describe what it should do after the command.\n\nExample:\n/create-skill I want to give you a character name and you explain his current character arc to me\n\nOptional name:\n/create-skill character-arc I want to give you a character name…',
+        },
+      ])
+      setInput('')
+      return
+    }
+
+    const takenNames = [
+      CREATE_SKILL_COMMAND,
+      ...skills.map((s) => s.name),
+    ]
+    const skill = buildSkillFromDefinition(definition, {
+      name: explicitName,
+      takenNames,
+    })
+
+    if (explicitName && takenNames.some((n) => n.toLowerCase() === explicitName.toLowerCase())) {
+      setMessages((prev) => [
+        ...prev,
+        { role: 'user', content: raw, display: raw },
+        {
+          role: 'assistant',
+          content: `A skill named /${explicitName} already exists. Pick another name or omit the name to auto-generate one.`,
+        },
+      ])
+      setInput('')
+      return
+    }
+
+    addSkill(skill)
+    setMessages((prev) => [
+      ...prev,
+      { role: 'user', content: raw, display: raw },
+      {
+        role: 'assistant',
+        content: `Created /${skill.name}.\n\n${skill.description}\n\nTry it with extra input, e.g. /${skill.name} Gandalf`,
+      },
+    ])
+    setInput('')
+    setShowManageSkills(true)
+  }
+
   async function handleSend(e: FormEvent) {
     e.preventDefault()
     const raw = input.trim()
     if (!raw || loading) return
+
+    const command = parseSlashCommand(raw)
+    if (command?.name.toLowerCase() === CREATE_SKILL_COMMAND) {
+      handleCreateSkill(raw, command.args)
+      return
+    }
 
     if (isDemoMode) {
       if (agentLocked || isDemoLimitReached()) {
@@ -179,7 +247,6 @@ export default function AgentSidebar({
     setErrorText(null)
     const { selection, document } = getSelectionAndDocument(editor)
     let apiContent = raw
-    const command = parseSlashCommand(raw)
     if (command) {
       const skill = findSkill(skills, command.name)
       if (skill) {
@@ -306,19 +373,6 @@ export default function AgentSidebar({
     }
   }
 
-  function handleAddSkill(e: FormEvent) {
-    e.preventDefault()
-    if (!newSkillName.trim() || !newSkillTemplate.trim()) return
-    addSkill({
-      name: newSkillName.trim().replace(/^\//, ''),
-      description: newSkillDescription.trim(),
-      template: newSkillTemplate,
-    })
-    setNewSkillName('')
-    setNewSkillDescription('')
-    setNewSkillTemplate('')
-  }
-
   return (
     <div className="w-80 shrink-0 border-l border-gray-200 dark:border-gray-700 bg-white dark:bg-[#1f2028] flex flex-col h-screen sticky top-0 font-sans text-gray-900 dark:text-gray-100">
       {showProviderSettings && <ProviderSettingsPanel onClose={() => setShowProviderSettings(false)} />}
@@ -355,7 +409,16 @@ export default function AgentSidebar({
       {showManageSkills && (
         <div className="border-b border-gray-200 dark:border-gray-700 p-3 text-xs">
           <p className="font-medium text-gray-700 dark:text-gray-200 mb-2">Available commands</p>
-          <ul className="mb-3 space-y-1">
+          <p className="text-gray-500 dark:text-gray-400 mb-2">
+            Create one with{' '}
+            <span className="font-mono text-indigo-600 dark:text-indigo-400">/create-skill</span> followed by
+            what it should do.
+          </p>
+          <ul className="space-y-1">
+            <li className="text-gray-600 dark:text-gray-400">
+              <span className="font-mono text-indigo-600 dark:text-indigo-400">/create-skill</span> —{' '}
+              {META_COMMANDS[0].description}
+            </li>
             {skills.map((s) => (
               <li key={s.id} className="flex items-center justify-between text-gray-600 dark:text-gray-400">
                 <span>
@@ -373,40 +436,14 @@ export default function AgentSidebar({
               </li>
             ))}
           </ul>
-          <form onSubmit={handleAddSkill} className="space-y-1.5">
-            <input
-              value={newSkillName}
-              onChange={(e) => setNewSkillName(e.target.value)}
-              placeholder="name (e.g. shorten)"
-              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded px-2 py-1"
-            />
-            <input
-              value={newSkillDescription}
-              onChange={(e) => setNewSkillDescription(e.target.value)}
-              placeholder="description"
-              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded px-2 py-1"
-            />
-            <textarea
-              value={newSkillTemplate}
-              onChange={(e) => setNewSkillTemplate(e.target.value)}
-              placeholder="template, use {{selection}} {{document}} {{args}}"
-              rows={2}
-              className="w-full border border-gray-200 dark:border-gray-600 dark:bg-[#23242c] rounded px-2 py-1"
-            />
-            <button
-              type="submit"
-              className="w-full bg-indigo-600 text-white rounded py-1 cursor-pointer hover:bg-indigo-700"
-            >
-              Add skill
-            </button>
-          </form>
         </div>
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3">
         {messages.length === 0 && (
           <p className="text-xs text-gray-400">
-            Ask a question, or use a command like <span className="font-mono">/summarize</span>.
+            Ask a question, use <span className="font-mono">/summarize</span>, or create a skill with{' '}
+            <span className="font-mono">/create-skill</span>.
             {isDemoMode && !agentLocked && (
               <>
                 {' '}
@@ -439,7 +476,7 @@ export default function AgentSidebar({
           <div className="absolute bottom-full left-3 right-3 mb-1 rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-[#23242c] shadow-md py-1 max-h-40 overflow-y-auto">
             {suggestions.map((s) => (
               <button
-                key={s.id}
+                key={'id' in s ? s.id : s.name}
                 type="button"
                 onClick={() => applySuggestion(s.name)}
                 className="block w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 dark:hover:bg-gray-800 cursor-pointer"

@@ -32,7 +32,7 @@ export function SkillsSection({ skills, customSkills, onRemoveSkill }: SkillsSec
         <h2 className="text-sm font-sans font-semibold text-white mb-3">Custom skills</h2>
         {customSkills.length === 0 ? (
           <p className="text-sm font-sans text-gray-500 py-6 border border-dashed border-white/10 rounded-xl text-center">
-            No custom skills yet. Create them from the agent sidebar in the editor.
+            No custom skills yet. In the agent chat, type /create-skill followed by what the skill should do.
           </p>
         ) : (
           <ul className="rounded-xl border border-white/8 overflow-hidden divide-y divide-white/8">
