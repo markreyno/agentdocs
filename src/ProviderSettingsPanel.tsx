@@ -40,7 +40,9 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
   })
   const [activeProvider, setActive] = useState<ProviderId>(getActiveProvider())
   const [keyInputs, setKeyInputs] = useState<Partial<Record<ProviderId, string>>>({})
+  const [ollamaModel, setOllamaModel] = useState(() => getModelFor('ollama'))
   const [ollamaModels, setOllamaModels] = useState<{ name: string; supportsTools: boolean }[]>([])
+  const [ollamaLoading, setOllamaLoading] = useState(false)
   const [savedNotice, setSavedNotice] = useState<ProviderId | null>(null)
   const [promptCaching, setPromptCaching] = useState<Partial<Record<CachableProviderId, boolean>>>(() => {
     const initial: Partial<Record<CachableProviderId, boolean>> = {}
@@ -50,33 +52,54 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
     return initial
   })
 
+  const applyOllamaModels = (listed: { name: string; supportsTools: boolean }[]) => {
+    setOllamaModels(listed)
+    const toolModels = listed.filter((m) => m.supportsTools).map((m) => m.name)
+    if (toolModels.length === 0) return
+    const current = getModelFor('ollama')
+    if (!toolModels.includes(current)) {
+      const next = toolModels[0]
+      setModelFor('ollama', next)
+      setOllamaModel(next)
+    } else {
+      setOllamaModel(current)
+    }
+  }
+
+  const refreshOllamaModels = async () => {
+    setOllamaLoading(true)
+    try {
+      // Start Ollama if needed so we can list local models for the selector.
+      await window.agentdocs?.ollama.ensureRunning()
+      const listed = (await window.agentdocs?.ollama.models()) ?? []
+      applyOllamaModels(listed)
+    } finally {
+      setOllamaLoading(false)
+    }
+  }
+
   useEffect(() => {
     window.agentdocs?.providers.list().then(setProviders)
     window.agentdocs?.keys.status().then(setKeyStatus)
-    if (getActiveProvider() === 'ollama') {
-      void ensureOllamaWhenSelected('ollama').then(() => {
-        window.agentdocs?.ollama.models().then(setOllamaModels)
-      })
-    }
+    void refreshOllamaModels()
   }, [])
-
-  const refreshOllamaModels = async (provider = activeProvider) => {
-    if (provider === 'ollama') {
-      await ensureOllamaWhenSelected('ollama')
-    }
-    window.agentdocs?.ollama.models().then(setOllamaModels)
-  }
 
   const handleActivate = async (provider: ProviderId) => {
     setActive(provider)
     setActiveProvider(provider)
     if (provider === 'ollama') {
-      await refreshOllamaModels('ollama')
+      await ensureOllamaWhenSelected('ollama')
+      await refreshOllamaModels()
     }
   }
 
   const handleModelChange = (provider: ProviderId, model: string) => {
     setModelFor(provider, model)
+  }
+
+  const handleOllamaModelChange = (model: string) => {
+    setOllamaModel(model)
+    setModelFor('ollama', model)
   }
 
   const handleCachingChange = (provider: CachableProviderId, enabled: boolean) => {
@@ -141,15 +164,25 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
               </div>
 
               <div className="space-y-1.5">
-                <input
-                  type="text"
-                  defaultValue={getModelFor(provider.id)}
-                  onBlur={(e) => handleModelChange(provider.id, e.target.value.trim() || provider.defaultModel)}
-                  placeholder="Model name"
-                  className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
-                />
+                {provider.id === 'ollama' ? (
+                  <OllamaModelSelect
+                    models={ollamaModels}
+                    loading={ollamaLoading}
+                    value={ollamaModel}
+                    onChange={handleOllamaModelChange}
+                    onRefresh={() => void refreshOllamaModels()}
+                  />
+                ) : (
+                  <input
+                    type="text"
+                    defaultValue={getModelFor(provider.id)}
+                    onBlur={(e) => handleModelChange(provider.id, e.target.value.trim() || provider.defaultModel)}
+                    placeholder="Model name"
+                    className="w-full border border-gray-200 rounded px-2 py-1 text-sm"
+                  />
+                )}
 
-                {provider.requiresApiKey ? (
+                {provider.requiresApiKey && (
                   <div className="flex gap-1.5">
                     <input
                       type="password"
@@ -175,8 +208,6 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
                       </button>
                     )}
                   </div>
-                ) : (
-                  <OllamaModelsList models={ollamaModels} onRefresh={() => void refreshOllamaModels()} />
                 )}
 
                 {isCachable(provider.id) && (
@@ -198,48 +229,64 @@ export default function ProviderSettingsPanel({ onClose }: ProviderSettingsPanel
   )
 }
 
-function OllamaModelsList({
+function OllamaModelSelect({
   models,
+  loading,
+  value,
+  onChange,
   onRefresh,
 }: {
   models: { name: string; supportsTools: boolean }[]
+  loading: boolean
+  value: string
+  onChange: (model: string) => void
   onRefresh: () => void
 }) {
+  const toolModels = models.filter((m) => m.supportsTools)
   const RefreshButton = (
-    <button type="button" onClick={onRefresh} className="text-indigo-600 cursor-pointer">
-      refresh
+    <button type="button" onClick={onRefresh} className="text-indigo-600 cursor-pointer" disabled={loading}>
+      {loading ? 'loading…' : 'refresh'}
     </button>
   )
 
-  if (models.length === 0) {
+  if (loading && models.length === 0) {
+    return <p className="text-xs text-gray-500">Detecting local models…</p>
+  }
+
+  if (toolModels.length === 0) {
     return (
-      <div className="text-xs text-gray-500">
-        No local models found. Run <code className="font-mono">ollama pull llama3.2</code> and {RefreshButton}.
+      <div className="text-xs text-gray-500 space-y-1">
+        <p>
+          No downloaded models with tool calling. Pull one (e.g.{' '}
+          <code className="font-mono">ollama pull llama3.2</code>) and {RefreshButton}.
+        </p>
+        {models.length > 0 && (
+          <p className="text-gray-400">
+            Installed without tools: {models.map((m) => m.name).join(', ')}
+          </p>
+        )}
       </div>
     )
   }
 
-  const withTools = models.filter((m) => m.supportsTools)
-  const withoutTools = models.filter((m) => !m.supportsTools)
-
   return (
-    <div className="text-xs text-gray-500 space-y-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span>Detected local models</span>
-        {RefreshButton}
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <select
+          value={toolModels.some((m) => m.name === value) ? value : toolModels[0].name}
+          onChange={(e) => onChange(e.target.value)}
+          className="flex-1 border border-gray-200 rounded px-2 py-1 text-sm bg-white"
+          aria-label="Ollama model"
+        >
+          {toolModels.map((m) => (
+            <option key={m.name} value={m.name}>
+              {m.name}
+            </option>
+          ))}
+        </select>
+        <span className="text-xs text-gray-500 shrink-0">{RefreshButton}</span>
       </div>
-      {withTools.length > 0 && (
-        <div>
-          <p className="font-medium text-gray-700">Tool calling</p>
-          <p className="text-gray-500">{withTools.map((m) => m.name).join(', ')}</p>
-        </div>
-      )}
-      {withoutTools.length > 0 && (
-        <div>
-          <p className="font-medium text-gray-700">No tool calling</p>
-          <p className="text-gray-500">{withoutTools.map((m) => m.name).join(', ')}</p>
-        </div>
-      )}
+      <p className="text-xs text-gray-500">Only local models that support tool calling are listed.</p>
     </div>
   )
 }
