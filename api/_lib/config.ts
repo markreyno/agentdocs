@@ -1,9 +1,9 @@
 /** Demo API limits and feature flags (shared by all /api routes). */
 
-export const DEMO_MAX_TOKENS = process.env.DEMO_MAX_TOKENS ? Number(process.env.DEMO_MAX_TOKENS) : 2048
+export const DEMO_MAX_TOKENS = process.env.DEMO_MAX_TOKENS ? Number(process.env.DEMO_MAX_TOKENS) : 4096
 export const DEMO_MAX_TOOL_ITERATIONS = process.env.DEMO_MAX_TOOL_ITERATIONS
   ? Number(process.env.DEMO_MAX_TOOL_ITERATIONS)
-  : 4
+  : 6
 export const DEMO_MAX_MESSAGES = process.env.DEMO_MAX_MESSAGES ? Number(process.env.DEMO_MAX_MESSAGES) : 12
 export const DEMO_MAX_MESSAGE_CHARS = process.env.DEMO_MAX_MESSAGE_CHARS
   ? Number(process.env.DEMO_MAX_MESSAGE_CHARS)

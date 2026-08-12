@@ -1,9 +1,15 @@
 export const HEADING_LEVELS = [1, 2, 3, 4, 5, 6] as const
 
 export const DEFAULT_TEXT_COLOR = '#000000'
+export const DEFAULT_TEXT_COLOR_DARK = '#ffffff'
+
+export function defaultTextColorForTheme(theme: 'light' | 'dark') {
+  return theme === 'dark' ? DEFAULT_TEXT_COLOR_DARK : DEFAULT_TEXT_COLOR
+}
 
 export const TEXT_COLORS = [
   { label: 'Black', value: '#000000' },
+  { label: 'White', value: '#ffffff' },
   { label: 'Dark red', value: '#c00000' },
   { label: 'Blue', value: '#0078d4' },
   { label: 'Green', value: '#107c10' },

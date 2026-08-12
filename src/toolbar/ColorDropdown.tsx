@@ -1,14 +1,17 @@
 import { Editor } from '@tiptap/react'
 import { useRef, useState } from 'react'
-import { DEFAULT_TEXT_COLOR, TEXT_COLORS } from './constants'
+import { useTheme } from '../lib/theme'
+import { defaultTextColorForTheme, TEXT_COLORS } from './constants'
 import { ColorSwatch, FontColorIcon } from './icons'
 import { keepEditorSelection } from './keepEditorSelection'
 import { useClickOutside } from './useClickOutside'
 
 export function ColorDropdown({ editor }: { editor: Editor }) {
+  const { theme } = useTheme()
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
-  const currentColor = (editor.getAttributes('textStyle').color as string | undefined) ?? DEFAULT_TEXT_COLOR
+  const defaultColor = defaultTextColorForTheme(theme)
+  const currentColor = (editor.getAttributes('textStyle').color as string | undefined) ?? defaultColor
 
   useClickOutside(containerRef, open, () => setOpen(false))
 

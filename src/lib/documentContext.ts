@@ -30,7 +30,12 @@ When the user asks a question or wants brainstorming (not an edit), answer norma
   sections.push(
     hasDocument
       ? 'Manuscript: available via tools (search_outline, search_sentences, get_node, get_story_blocks).'
-      : 'Manuscript: (empty)',
+      : `Manuscript: (empty)
+When the manuscript is empty and the user asks you to create, write, draft, generate, or compose a story/scene/chapter:
+- You MUST call get_story_blocks then insert_blocks in this turn (use after_index: -1).
+- Keep the insert short: one heading plus a few paragraphs so the tool call fits under the token limit.
+- Do not promise or describe manuscript content in chat until insert_blocks returns status "applied".
+- Agreeing in prose alone does not change the document.`,
   )
 
   const selection = ctx.selection.trim()

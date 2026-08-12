@@ -25,8 +25,12 @@ import {
   canvasColorForTheme,
   pageHeaderLeftHtml,
 } from './lib/pageLayout'
+import {
+  DEFAULT_TEXT_COLOR,
+  DEFAULT_TEXT_COLOR_DARK,
+  defaultTextColorForTheme,
+} from './toolbar/constants'
 
-const DEFAULT_TEXT_COLOR = '#000000'
 const DEFAULT_TITLE = 'Untitled document'
 
 interface TiptapEditorProps {
@@ -86,9 +90,23 @@ export default function TiptapEditor({ documentId, onBack, showBack }: TiptapEdi
     ],
     content: initialContent,
     onCreate: ({ editor }) => {
-      editor.chain().focus().setColor(DEFAULT_TEXT_COLOR).run()
+      editor.chain().focus().setColor(defaultTextColorForTheme(theme)).run()
     },
   }, [documentId])
+
+  useEffect(() => {
+    if (!editor) return
+    const nextDefault = defaultTextColorForTheme(theme)
+    const current = editor.getAttributes('textStyle').color as string | undefined
+    // Swap black/white body defaults when the theme changes so dark mode stays readable.
+    if (
+      !current ||
+      current === DEFAULT_TEXT_COLOR ||
+      current === DEFAULT_TEXT_COLOR_DARK
+    ) {
+      editor.chain().setColor(nextDefault).run()
+    }
+  }, [editor, theme])
 
   useEffect(() => {
     if (!editor) return
