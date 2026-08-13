@@ -1,3 +1,10 @@
+import { isRendererDocTool } from '../../dist-shared/editTools.js'
+import {
+  hasWriteIntent,
+  latestUserText,
+  shouldInjectWriteNudge,
+  WRITE_TOOL_NUDGE,
+} from '../../dist-shared/writeIntent.js'
 import type { ProviderStreamFn, ToolDefinition } from './types.cjs'
 
 const MAX_TOOL_ITERATIONS = 6
@@ -38,7 +45,11 @@ export const streamGemini: ProviderStreamFn = async ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
   }))
-  const maxIterations = geminiTools && executeTool ? MAX_TOOL_ITERATIONS : 1
+  const toolsAvailable = Boolean(geminiTools && executeTool)
+  const maxIterations = toolsAvailable ? MAX_TOOL_ITERATIONS : 1
+  const writeIntent = hasWriteIntent(latestUserText(messages))
+  let rendererToolUsed = false
+  let writeNudgeInjected = false
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`
@@ -94,15 +105,38 @@ export const streamGemini: ProviderStreamFn = async ({
       }
     }
 
-    if (functionCalls.length === 0 || !executeTool) return
-
-    contents.push({ role: 'model', parts: modelParts })
-    const responseParts: GeminiPart[] = []
-    for (const fc of functionCalls) {
-      onToolUse?.(fc.name, fc.args)
-      const result = await Promise.resolve(executeTool(fc.name, fc.args))
-      responseParts.push({ functionResponse: { name: fc.name, response: { result } } })
+    if (functionCalls.length > 0 && executeTool) {
+      contents.push({ role: 'model', parts: modelParts })
+      const responseParts: GeminiPart[] = []
+      for (const fc of functionCalls) {
+        if (isRendererDocTool(fc.name)) rendererToolUsed = true
+        onToolUse?.(fc.name, fc.args)
+        const result = await Promise.resolve(executeTool(fc.name, fc.args))
+        responseParts.push({ functionResponse: { name: fc.name, response: { result } } })
+      }
+      contents.push({ role: 'user', parts: responseParts })
+      continue
     }
-    contents.push({ role: 'user', parts: responseParts })
+
+    if (modelParts.length > 0) {
+      contents.push({ role: 'model', parts: modelParts })
+    }
+
+    if (
+      shouldInjectWriteNudge({
+        toolsAvailable,
+        writeIntent,
+        rendererToolUsed,
+        writeNudgeInjected,
+        iteration,
+        maxIterations,
+      })
+    ) {
+      writeNudgeInjected = true
+      contents.push({ role: 'user', parts: [{ text: WRITE_TOOL_NUDGE }] })
+      continue
+    }
+
+    return
   }
 }

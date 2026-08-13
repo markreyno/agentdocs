@@ -5,6 +5,12 @@ import { buildDocTree } from '../../shared/docTree.js'
 import { DOC_TOOLS, executeDocTool } from '../../shared/docTools.js'
 import { isRendererDocTool } from '../../shared/editTools.js'
 import {
+  hasWriteIntent,
+  latestUserText,
+  shouldInjectWriteNudge,
+  WRITE_TOOL_NUDGE,
+} from '../../shared/writeIntent.js'
+import {
   DEMO_ENABLED,
   DEMO_MAX_MESSAGES,
   DEMO_MAX_MESSAGE_CHARS,
@@ -17,12 +23,6 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
 }
-
-const WRITE_INTENT_RE =
-  /\b(create|write|draft|generate|compose|insert|add a|make me|make a|make an)\b/i
-
-const WRITE_TOOL_NUDGE =
-  'You did not call any edit tools. If the user asked you to create or write manuscript content, you MUST call get_story_blocks then insert_blocks now with a short story (one heading and a few paragraphs; after_index: -1 for an empty doc). Do not only describe what you will write.'
 
 export function validateChatMessages(messages: unknown): messages is ChatMessage[] {
   if (!Array.isArray(messages) || messages.length === 0 || messages.length > DEMO_MAX_MESSAGES) {
@@ -44,17 +44,6 @@ export function getAnthropic(): Anthropic | null {
 export interface ChatStreamHandlers {
   send: (data: Record<string, unknown>) => void
   signal: AbortSignal
-}
-
-function latestUserText(messages: ChatMessage[]): string {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    if (messages[i].role === 'user') return messages[i].content
-  }
-  return ''
-}
-
-function hasWriteIntent(text: string): boolean {
-  return WRITE_INTENT_RE.test(text)
 }
 
 /** Runs the Anthropic tool loop and writes SSE payload objects via `send`. */
@@ -113,12 +102,15 @@ export async function runDemoChat(
     const stoppedWithoutTools =
       finalMessage.stop_reason === 'end_turn' || finalMessage.stop_reason === 'max_tokens'
     if (
-      tree &&
-      writeIntent &&
-      !rendererToolUsed &&
-      !writeNudgeInjected &&
       stoppedWithoutTools &&
-      iteration < DEMO_MAX_TOOL_ITERATIONS - 1
+      shouldInjectWriteNudge({
+        toolsAvailable: Boolean(tree),
+        writeIntent,
+        rendererToolUsed,
+        writeNudgeInjected,
+        iteration,
+        maxIterations: DEMO_MAX_TOOL_ITERATIONS,
+      })
     ) {
       writeNudgeInjected = true
       convo.push({ role: 'user', content: WRITE_TOOL_NUDGE })

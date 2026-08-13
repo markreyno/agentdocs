@@ -1,3 +1,10 @@
+import { isRendererDocTool } from '../../dist-shared/editTools.js'
+import {
+  hasWriteIntent,
+  latestUserText,
+  shouldInjectWriteNudge,
+  WRITE_TOOL_NUDGE,
+} from '../../dist-shared/writeIntent.js'
 import type { ProviderStreamFn, ToolDefinition } from './types.cjs'
 
 const MAX_TOOL_ITERATIONS = 6
@@ -30,7 +37,11 @@ export const streamOpenAI: ProviderStreamFn = async ({
 
   const openAiTools = tools?.length ? toOpenAiTools(tools) : undefined
   const convo: Record<string, unknown>[] = messages.map((m) => ({ role: m.role, content: m.content }))
-  const maxIterations = openAiTools && executeTool ? MAX_TOOL_ITERATIONS : 1
+  const toolsAvailable = Boolean(openAiTools && executeTool)
+  const maxIterations = toolsAvailable ? MAX_TOOL_ITERATIONS : 1
+  const writeIntent = hasWriteIntent(latestUserText(messages))
+  let rendererToolUsed = false
+  let writeNudgeInjected = false
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     // OpenAI caches eligible prompts automatically. prompt_cache_key improves routing/hit rates
@@ -58,6 +69,7 @@ export const streamOpenAI: ProviderStreamFn = async ({
     const decoder = new TextDecoder()
     let buffer = ''
     let finishReason: string | undefined
+    let assistantText = ''
     const toolCallAcc = new Map<number, ToolCallAccumulator>()
 
     while (true) {
@@ -78,7 +90,10 @@ export const streamOpenAI: ProviderStreamFn = async ({
           const choice = parsed?.choices?.[0]
           const delta = choice?.delta
           const text = delta?.content
-          if (typeof text === 'string' && text) onDelta(text)
+          if (typeof text === 'string' && text) {
+            assistantText += text
+            onDelta(text)
+          }
 
           if (Array.isArray(delta?.tool_calls)) {
             for (const tc of delta.tool_calls) {
@@ -97,28 +112,51 @@ export const streamOpenAI: ProviderStreamFn = async ({
       }
     }
 
-    if (finishReason !== 'tool_calls' || !executeTool || toolCallAcc.size === 0) return
-
-    const toolCalls = [...toolCallAcc.values()]
-    convo.push({
-      role: 'assistant',
-      content: null,
-      tool_calls: toolCalls.map((tc, i) => ({
-        id: tc.id ?? `call_${i}`,
-        type: 'function',
-        function: { name: tc.name ?? '', arguments: tc.args },
-      })),
-    })
-    for (const tc of toolCalls) {
-      let input: Record<string, unknown> = {}
-      try {
-        input = tc.args ? JSON.parse(tc.args) : {}
-      } catch {
-        // malformed args from the model; execute with an empty input rather than failing the turn
+    if (finishReason === 'tool_calls' && executeTool && toolCallAcc.size > 0) {
+      const toolCalls = [...toolCallAcc.values()]
+      convo.push({
+        role: 'assistant',
+        content: assistantText || null,
+        tool_calls: toolCalls.map((tc, i) => ({
+          id: tc.id ?? `call_${i}`,
+          type: 'function',
+          function: { name: tc.name ?? '', arguments: tc.args },
+        })),
+      })
+      for (const tc of toolCalls) {
+        let input: Record<string, unknown> = {}
+        try {
+          input = tc.args ? JSON.parse(tc.args) : {}
+        } catch {
+          // malformed args from the model; execute with an empty input rather than failing the turn
+        }
+        if (isRendererDocTool(tc.name ?? '')) rendererToolUsed = true
+        onToolUse?.(tc.name ?? '', input)
+        const result = await Promise.resolve(executeTool(tc.name ?? '', input))
+        convo.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) })
       }
-      onToolUse?.(tc.name ?? '', input)
-      const result = await Promise.resolve(executeTool(tc.name ?? '', input))
-      convo.push({ role: 'tool', tool_call_id: tc.id, content: JSON.stringify(result) })
+      continue
     }
+
+    if (assistantText) {
+      convo.push({ role: 'assistant', content: assistantText })
+    }
+
+    if (
+      shouldInjectWriteNudge({
+        toolsAvailable,
+        writeIntent,
+        rendererToolUsed,
+        writeNudgeInjected,
+        iteration,
+        maxIterations,
+      })
+    ) {
+      writeNudgeInjected = true
+      convo.push({ role: 'user', content: WRITE_TOOL_NUDGE })
+      continue
+    }
+
+    return
   }
 }

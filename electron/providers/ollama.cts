@@ -1,3 +1,10 @@
+import { isRendererDocTool } from '../../dist-shared/editTools.js'
+import {
+  hasWriteIntent,
+  latestUserText,
+  shouldInjectWriteNudge,
+  WRITE_TOOL_NUDGE,
+} from '../../dist-shared/writeIntent.js'
 import { OLLAMA_BASE_URL } from '../ollamaService.cjs'
 import type { ProviderStreamFn, ToolDefinition } from './types.cjs'
 
@@ -136,7 +143,11 @@ export const streamOllama: ProviderStreamFn = async ({
   const ollamaTools = tools?.length ? toOllamaTools(tools) : undefined
   const knownToolNames = new Set((tools ?? []).map((t) => t.name))
   const convo: Record<string, unknown>[] = messages.map((m) => ({ role: m.role, content: m.content }))
-  const maxIterations = ollamaTools && executeTool ? MAX_TOOL_ITERATIONS : 1
+  const toolsAvailable = Boolean(ollamaTools && executeTool)
+  const maxIterations = toolsAvailable ? MAX_TOOL_ITERATIONS : 1
+  const writeIntent = hasWriteIntent(latestUserText(messages))
+  let rendererToolUsed = false
+  let writeNudgeInjected = false
 
   for (let iteration = 0; iteration < maxIterations; iteration++) {
     let response: Response
@@ -206,27 +217,48 @@ export const streamOllama: ProviderStreamFn = async ({
       recoveredFromText = toolCalls.length > 0
     }
 
-    if (toolCalls.length === 0 || !executeTool) {
-      if (bufferTextForTools && assistantContent) onDelta(assistantContent)
-      return
+    if (toolCalls.length > 0 && executeTool) {
+      // Keep history clean when the model only dumped JSON as text.
+      convo.push({
+        role: 'assistant',
+        content: recoveredFromText ? '' : assistantContent,
+        tool_calls: toolCalls,
+      })
+      for (const tc of toolCalls) {
+        const args = tc.function.arguments
+        if (isRendererDocTool(tc.function.name)) rendererToolUsed = true
+        onToolUse?.(tc.function.name, args)
+        const result = await Promise.resolve(executeTool(tc.function.name, args))
+        convo.push({
+          role: 'tool',
+          tool_name: tc.function.name,
+          content: JSON.stringify(result),
+        })
+      }
+      continue
     }
 
-    // Keep history clean when the model only dumped JSON as text.
-    convo.push({
-      role: 'assistant',
-      content: recoveredFromText ? '' : assistantContent,
-      tool_calls: toolCalls,
-    })
-    for (const tc of toolCalls) {
-      const args = tc.function.arguments
-      onToolUse?.(tc.function.name, args)
-      const result = await Promise.resolve(executeTool(tc.function.name, args))
-      convo.push({
-        role: 'tool',
-        tool_name: tc.function.name,
-        content: JSON.stringify(result),
-      })
+    if (bufferTextForTools && assistantContent) onDelta(assistantContent)
+    if (assistantContent) {
+      convo.push({ role: 'assistant', content: assistantContent })
     }
+
+    if (
+      shouldInjectWriteNudge({
+        toolsAvailable,
+        writeIntent,
+        rendererToolUsed,
+        writeNudgeInjected,
+        iteration,
+        maxIterations,
+      })
+    ) {
+      writeNudgeInjected = true
+      convo.push({ role: 'user', content: WRITE_TOOL_NUDGE })
+      continue
+    }
+
+    return
   }
 }
 
