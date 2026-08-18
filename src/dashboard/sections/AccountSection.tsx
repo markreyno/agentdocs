@@ -3,6 +3,7 @@ interface AccountSectionProps {
   displayName: string
   userId: string
   email: string
+  emailLocked?: boolean
   onEmailChange: (email: string) => void
   onDisplayNameBlur: (value: string) => void
 }
@@ -12,6 +13,7 @@ export function AccountSection({
   displayName,
   userId,
   email,
+  emailLocked,
   onEmailChange,
   onDisplayNameBlur,
 }: AccountSectionProps) {
@@ -39,6 +41,7 @@ export function AccountSection({
             type="email"
             value={email}
             onChange={e => onEmailChange(e.target.value)}
+            readOnly={emailLocked}
             className="w-full max-w-md px-4 py-2.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm font-sans focus:outline-none focus:border-indigo-400/60 focus:ring-1 focus:ring-indigo-400/30"
           />
         </div>
@@ -48,7 +51,8 @@ export function AccountSection({
         </div>
       </div>
       <p className="text-xs font-sans text-gray-500">
-        Changes to display name are saved locally on this {isDesktop ? 'device' : 'browser'}.
+        Display name is saved locally on this {isDesktop ? 'device' : 'browser'}.
+        {emailLocked ? ' Email is the verified sign-in identifier and cannot be edited here.' : ''}
       </p>
     </div>
   )

@@ -24,16 +24,28 @@ import { WebGatePanel } from './WebGatePanel'
 
 export type { UserDashboardProps }
 
-export default function UserDashboard({ onBack, onOpenEditor, variant = 'web' }: UserDashboardProps) {
+export default function UserDashboard({
+  onBack,
+  onOpenEditor,
+  variant = 'web',
+  account,
+  session,
+  onAccountUpdate,
+  onSignedOut,
+}: UserDashboardProps) {
   const isDesktop = variant === 'desktop'
   const [section, setSection] = useState<DashboardSection>('overview')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [user, setUser] = useState<LocalUser>(() => getOrCreateUser())
-  const [email, setEmail] = useState('author@example.com')
+  const [email, setEmail] = useState(account?.email ?? 'author@example.com')
   const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(user.id))
   const [openingWeb, setOpeningWeb] = useState(false)
   const { skills, customSkills, removeSkill } = useSkills()
   const { theme, toggleTheme } = useTheme()
+
+  useEffect(() => {
+    if (account?.email) setEmail(account.email)
+  }, [account?.email])
 
   useEffect(() => {
     setDocuments(listRecentDocuments(user.id))
@@ -124,8 +136,9 @@ export default function UserDashboard({ onBack, onOpenEditor, variant = 'web' }:
               <AccountSection
                 isDesktop={isDesktop}
                 displayName={user.displayName}
-                userId={user.id}
+                userId={account?.id ?? user.id}
                 email={email}
+                emailLocked={Boolean(account)}
                 onEmailChange={setEmail}
                 onDisplayNameBlur={handleDisplayNameBlur}
               />
@@ -148,7 +161,13 @@ export default function UserDashboard({ onBack, onOpenEditor, variant = 'web' }:
             )}
 
             {!showWebGate && section === 'security' && (
-              <SecuritySection isDesktop={isDesktop} onSignOut={onBack} />
+              <SecuritySection
+                isDesktop={isDesktop}
+                account={account}
+                session={session}
+                onAccountUpdate={onAccountUpdate}
+                onSignOut={onSignedOut ?? onBack}
+              />
             )}
           </div>
         </main>

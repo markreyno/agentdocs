@@ -9,6 +9,18 @@ import type { VercelRequest, VercelResponse } from '@vercel/node'
 import chat from '../api/chat.js'
 import demoSession from '../api/demo-session.js'
 import demoStatus from '../api/demo-status.js'
+import authSignup from '../api/auth/signup.js'
+import authLogin from '../api/auth/login.js'
+import authLogout from '../api/auth/logout.js'
+import authMe from '../api/auth/me.js'
+import authVerifyEmail from '../api/auth/verify-email.js'
+import authForgotPassword from '../api/auth/forgot-password.js'
+import authResetPassword from '../api/auth/reset-password.js'
+import authChangePassword from '../api/auth/change-password.js'
+import authMfaComplete from '../api/auth/mfa/complete.js'
+import authMfaEnroll from '../api/auth/mfa/enroll.js'
+import authMfaConfirm from '../api/auth/mfa/confirm.js'
+import authMfaDisable from '../api/auth/mfa/disable.js'
 import { DEMO_ENABLED, DEMO_MODEL, DEMO_MAX_TOKENS, DEMO_MAX_TOOL_ITERATIONS, getAllowedOrigins } from '../api/_lib/config.js'
 import { getRedis } from '../api/_lib/redis.js'
 
@@ -20,6 +32,37 @@ const routes: Record<string, ApiHandler> = {
   '/api/demo-status': demoStatus,
   '/api/demo-session': demoSession,
   '/api/chat': chat,
+  '/api/auth/signup': authSignup,
+  '/api/auth/login': authLogin,
+  '/api/auth/logout': authLogout,
+  '/api/auth/me': authMe,
+  '/api/auth/verify-email': authVerifyEmail,
+  '/api/auth/forgot-password': authForgotPassword,
+  '/api/auth/reset-password': authResetPassword,
+  '/api/auth/change-password': authChangePassword,
+  '/api/auth/mfa/complete': authMfaComplete,
+  '/api/auth/mfa/enroll': authMfaEnroll,
+  '/api/auth/mfa/confirm': authMfaConfirm,
+  '/api/auth/mfa/disable': authMfaDisable,
+}
+
+function parseCookies(header: string | string[] | undefined): Record<string, string> {
+  const raw = Array.isArray(header) ? header.join('; ') : header
+  const cookies: Record<string, string> = {}
+  if (!raw) return cookies
+  for (const part of raw.split(';')) {
+    const idx = part.indexOf('=')
+    if (idx === -1) continue
+    const key = part.slice(0, idx).trim()
+    const value = part.slice(idx + 1).trim()
+    if (!key) continue
+    try {
+      cookies[key] = decodeURIComponent(value)
+    } catch {
+      cookies[key] = value
+    }
+  }
+  return cookies
 }
 
 async function readBody(req: IncomingMessage): Promise<unknown> {
@@ -75,7 +118,7 @@ createServer(async (req, res) => {
     const vercelReq = Object.assign(req, {
       query: Object.fromEntries(url.searchParams),
       body,
-      cookies: {},
+      cookies: parseCookies(req.headers.cookie),
     }) as VercelRequest
 
     await handler(vercelReq, toVercelResponse(res))
