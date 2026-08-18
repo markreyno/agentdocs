@@ -10,6 +10,12 @@ export interface StoryBlockInfo {
   text: string
   /** Heading level (headings only). */
   level?: number
+  /** Doc tree id (chapter/scene/paragraph) for git-style revision tracking. */
+  id?: string
+  /** Blob hash of this block's own text. */
+  hash?: string
+  /** Tree hash including descendants (headings). */
+  treeHash?: string
 }
 
 /** Block with document positions — used by both tree fallbacks and the live editor. */
@@ -74,6 +80,9 @@ export function getStoryBlocksFromTree(tree: DocNode): StoryBlockInfo[] {
           index: index++,
           kind: 'heading',
           text: node.title.trim(),
+          id: node.id,
+          hash: node.blobHash,
+          treeHash: node.hash,
         })
       }
     }
@@ -83,7 +92,14 @@ export function getStoryBlocksFromTree(tree: DocNode): StoryBlockInfo[] {
           ?.map((child) => child.text ?? '')
           .filter(Boolean)
           .join(' ') ?? ''
-      blocks.push({ index: index++, kind: 'paragraph', text })
+      blocks.push({
+        index: index++,
+        kind: 'paragraph',
+        text,
+        id: node.id,
+        hash: node.blobHash,
+        treeHash: node.hash,
+      })
     }
     node.children?.forEach(walk)
   }

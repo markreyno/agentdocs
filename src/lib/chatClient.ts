@@ -36,6 +36,7 @@ export async function streamChat(
   { onDelta, onDone, onError, onToolUse, onRateLimited }: StreamChatHandlers,
   documentJson?: unknown,
   signal?: AbortSignal,
+  knownRevisions?: unknown,
 ) {
   if (signal?.aborted) return
 
@@ -53,7 +54,7 @@ export async function streamChat(
         Authorization: `Bearer ${bearer}`,
       },
       credentials: 'same-origin',
-      body: JSON.stringify({ messages, documentJson }),
+      body: JSON.stringify({ messages, documentJson, knownRevisions }),
       signal,
     })
 

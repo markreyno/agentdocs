@@ -19,6 +19,56 @@ export interface DocNode {
   /** Sentence nodes only: literal text. */
   text?: string
   children?: DocNode[]
+  /**
+   * Git blob hash of this node's own text (title, paragraph body, or sentence).
+   * Unchanged when a descendant is edited.
+   */
+  blobHash?: string
+  /**
+   * Git tree hash of this node plus its children. Changes when any descendant is
+   * edited, so a chapter hash is a cheap dirty-check for the whole chapter.
+   */
+  hash?: string
+}
+
+/**
+ * Short content-addressed id, analogous to a git object name. Stable for the
+ * same payload; no crypto dependency (runs in the browser and Node).
+ */
+export function revisionHash(payload: string): string {
+  let h1 = 2166136261
+  let h2 = 5381
+  for (let i = 0; i < payload.length; i++) {
+    const c = payload.charCodeAt(i)
+    h1 ^= c
+    h1 = Math.imul(h1, 16777619)
+    h2 = (h2 * 33 + c) | 0
+  }
+  const a = (h1 >>> 0).toString(16).padStart(8, '0')
+  const b = (h2 >>> 0).toString(16).padStart(8, '0')
+  return `${a}${b}`.slice(0, 12)
+}
+
+function nodeBlobPayload(node: DocNode): string {
+  if (node.type === 'sentence') return node.text ?? ''
+  if (node.type === 'paragraph') {
+    return (
+      node.children
+        ?.map((child) => child.text ?? '')
+        .filter(Boolean)
+        .join(' ') ?? ''
+    )
+  }
+  return node.title ?? ''
+}
+
+/** Bottom-up git-style blob/tree hashes. Mutates the tree in place. */
+export function stampRevisions(node: DocNode): void {
+  node.children?.forEach(stampRevisions)
+  const blobHash = revisionHash(`blob:${node.type}:${nodeBlobPayload(node)}`)
+  const childTrees = (node.children ?? []).map((child) => child.hash ?? '').join(',')
+  node.blobHash = blobHash
+  node.hash = revisionHash(`tree:${node.type}:${blobHash}:${childTrees}`)
 }
 
 const SENTENCE_SPLIT_RE = /(?<=[.!?])\s+(?=[A-Z0-9"'])/
@@ -232,6 +282,7 @@ export function buildDocTree(doc: JSONContent, bookTitle = 'Untitled'): DocNode 
     }
   }
   closeChapter()
+  stampRevisions(book)
 
   return book
 }
@@ -253,6 +304,8 @@ export interface OutlineMatch {
   title?: string
   summary?: string
   path: string[] // breadcrumb of titles from Book down to this node
+  /** Git tree hash of this node; compare across turns to skip unchanged sections. */
+  hash?: string
 }
 
 /**
@@ -272,7 +325,14 @@ export function searchOutline(root: DocNode, query: string): OutlineMatch[] {
         .join(' ')
         .toLowerCase()
       if (haystack.includes(q)) {
-        matches.push({ id: node.id, type: node.type, title: node.title, summary: node.summary, path: nextTrail })
+        matches.push({
+          id: node.id,
+          type: node.type,
+          title: node.title,
+          summary: node.summary,
+          path: nextTrail,
+          hash: node.hash,
+        })
       }
     }
     node.children?.forEach((child) => walk(child, nextTrail))

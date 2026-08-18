@@ -28,6 +28,7 @@ function streamChat(
     promptCaching?: boolean
     documentJson?: unknown
     executeRendererTool?: RendererToolExecutor
+    knownRevisions?: Record<string, { blob: string; tree: string }>
   },
 ): () => void {
   const requestId = crypto.randomUUID()
@@ -83,6 +84,7 @@ function streamChat(
     messages,
     promptCaching: options?.promptCaching,
     documentJson: options?.documentJson,
+    knownRevisions: options?.knownRevisions,
   })
 
   return () => {

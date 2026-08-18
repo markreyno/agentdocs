@@ -103,7 +103,7 @@ export function stripEmbeddedDocumentFromTemplate(template: string): string {
 
   if (withoutDoc.includes('Do not assume the full manuscript')) return withoutDoc
 
-  return `${withoutDoc}\n\nDo not assume the full manuscript is in this message. Use search_outline, search_sentences, get_node, or get_story_blocks when you need document context.`
+  return `${withoutDoc}\n\nDo not assume the full manuscript is in this message. Use doc_status, search_outline, search_sentences, get_node, or get_story_blocks when you need document context. Do not re-fetch unchanged loaded nodes.`
 }
 
 function loadCustomSkills(): Skill[] {
@@ -230,7 +230,7 @@ export function buildSkillFromDefinition(
     'Selected text (if any):',
     '{{selection}}',
     '',
-    'Do not assume the full manuscript is in this message. Use search_outline, search_sentences, get_node, or get_story_blocks when you need document context.',
+    'Do not assume the full manuscript is in this message. Use doc_status, search_outline, search_sentences, get_node, or get_story_blocks when you need document context. Do not re-fetch unchanged loaded nodes.',
   ].join('\n')
 
   return { name, description, template }

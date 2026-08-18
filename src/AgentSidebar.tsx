@@ -4,6 +4,14 @@ import { sendChatMessage } from './lib/agentChat'
 import type { ChatMessage } from './lib/chatClient'
 import { withDocumentContext } from './lib/documentContext'
 import { applyReplaceInEditor, executeRendererDocTool, type ReplaceTextInput } from './lib/editTools'
+import { buildDocTree, getNode } from './lib/docTree'
+import {
+  formatManuscriptCatalog,
+  formatRevisionStatus,
+  markKnown,
+  nodeReturnsProse,
+  type KnownRevisions,
+} from './lib/docRevision'
 import {
   applyInsertBlocksInEditor,
   applyReplaceStoryInEditor,
@@ -83,6 +91,9 @@ function formatToolStatus(name: string, input: unknown): string {
   if (name === 'get_story_blocks') {
     return 'Reading story structure…'
   }
+  if (name === 'doc_status') {
+    return 'Checking manuscript revisions…'
+  }
   if (name === 'replace_text') {
     const find = (input as { find?: string })?.find?.trim()
     const replaceAll = (input as { replace_all?: boolean })?.replace_all
@@ -120,6 +131,7 @@ export default function AgentSidebar({
   const assistantDraftRef = useRef('')
   const chatSessionRef = useRef(0)
   const cancelChatRef = useRef<(() => void) | null>(null)
+  const knownRevisionsRef = useRef<KnownRevisions>({})
 
   if (!open) return null
 
@@ -175,6 +187,25 @@ export default function AgentSidebar({
     if (result.status !== 'applied') {
       setErrorText(result.message)
     }
+  }
+
+  function rememberReadNodes(name: string, input: unknown) {
+    if (!editor || name !== 'get_node') return
+    const tree = buildDocTree(editor.getJSON())
+    const id = String((input as { id?: string }).id ?? '')
+    const node = getNode(tree, id)
+    if (node && nodeReturnsProse(node)) markKnown(knownRevisionsRef.current, node)
+  }
+
+  function revisionStatusForPrompt(): string | undefined {
+    if (!editor) return undefined
+    const text = editor.getText().trim()
+    if (!text) return undefined
+    const tree = buildDocTree(editor.getJSON())
+    return [
+      formatManuscriptCatalog(tree),
+      formatRevisionStatus(tree, knownRevisionsRef.current),
+    ].join('\n\n')
   }
 
   function handleCreateSkill(raw: string, args: string) {
@@ -239,6 +270,7 @@ export default function AgentSidebar({
     setToolStatus(null)
     setLoading(false)
     assistantDraftRef.current = ''
+    knownRevisionsRef.current = {}
     inputRef.current?.focus()
   }
 
@@ -270,16 +302,18 @@ export default function AgentSidebar({
 
     setErrorText(null)
     const { selection, document } = getSelectionAndDocument(editor)
+    const revisionStatus = revisionStatusForPrompt()
     let apiContent = raw
     if (command) {
       const skill = findSkill(skills, command.name)
       if (skill) {
         apiContent = resolveSkillTemplate(skill, { selection, document, args: command.args })
+        if (revisionStatus) apiContent = `${apiContent}\n\n${revisionStatus}`
       } else {
-        apiContent = withDocumentContext(raw, { selection, document })
+        apiContent = withDocumentContext(raw, { selection, document, revisionStatus })
       }
     } else {
-      apiContent = withDocumentContext(raw, { selection, document })
+      apiContent = withDocumentContext(raw, { selection, document, revisionStatus })
     }
 
     const userMessage: DisplayMessage = { role: 'user', content: apiContent, display: raw }
@@ -330,6 +364,7 @@ export default function AgentSidebar({
           if (name === 'insert_blocks' && !isDesktopApp()) {
             trackInsertBlocks(input)
           }
+          rememberReadNodes(name, input)
         },
         onDone: () => {
           if (session !== chatSessionRef.current) return
@@ -406,6 +441,7 @@ export default function AgentSidebar({
           }
           return executeRendererDocTool(editor, name, input, getSelectionRange(editor))
         },
+        knownRevisions: knownRevisionsRef.current,
       },
     )
   }

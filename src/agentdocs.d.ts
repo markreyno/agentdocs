@@ -48,6 +48,7 @@ declare global {
             promptCaching?: boolean
             documentJson?: unknown
             executeRendererTool?: RendererToolExecutor
+            knownRevisions?: Record<string, { blob: string; tree: string }>
           },
         ) => () => void
       }

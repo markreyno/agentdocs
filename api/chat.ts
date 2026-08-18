@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import type { JSONContent } from '@tiptap/core'
 import { getAnthropic, runDemoChat, validateChatMessages } from './_lib/chat.js'
+import { parseKnownRevisions } from '../shared/docRevision.js'
 import {
   DEMO_ENABLED,
   DEMO_MAX_MESSAGE_CHARS,
@@ -60,6 +61,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
   const messages = (body as { messages?: unknown }).messages
   const documentJson = (body as { documentJson?: JSONContent }).documentJson
+  const knownRevisions = parseKnownRevisions((body as { knownRevisions?: unknown }).knownRevisions)
 
   if (!validateChatMessages(messages)) {
     res.status(400).json({
@@ -97,7 +99,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     await runDemoChat(anthropic, messages, documentJson, {
       send,
       signal: controller.signal,
-    })
+    }, knownRevisions)
   } catch (err) {
     if (!controller.signal.aborted) {
       const message = err instanceof Error ? err.message : 'Unknown error contacting Claude'

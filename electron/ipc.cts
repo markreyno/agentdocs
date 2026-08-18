@@ -2,6 +2,7 @@ import { ipcMain, shell, type IpcMainEvent } from 'electron'
 import type { JSONContent } from '@tiptap/core'
 import { buildDocTree } from '../dist-shared/docTree.js'
 import { DOC_TOOLS, executeDocTool, isRendererDocTool } from '../dist-shared/docTools.js'
+import { parseKnownRevisions } from '../dist-shared/docRevision.js'
 import { deleteKey, getKey, listKeyStatus, setKey } from './keyStore.cjs'
 import { ensureOllamaRunning } from './ollamaService.cjs'
 import { getStreamFn, listOllamaModels, PROVIDERS } from './providers/index.cjs'
@@ -14,6 +15,7 @@ interface ChatStartPayload {
   messages: ChatMessage[]
   promptCaching?: boolean
   documentJson?: JSONContent
+  knownRevisions?: unknown
 }
 
 type ChatEvent =
@@ -98,7 +100,7 @@ export function registerIpcHandlers() {
 
   ipcMain.on(
     'chat:start',
-    async (event, { requestId, provider, model, messages, promptCaching, documentJson }: ChatStartPayload) => {
+    async (event, { requestId, provider, model, messages, promptCaching, documentJson, knownRevisions: rawKnown }: ChatStartPayload) => {
     const controller = new AbortController()
     activeRequests.set(requestId, controller)
 
@@ -115,6 +117,7 @@ export function registerIpcHandlers() {
       }
 
       const tree = documentJson ? buildDocTree(documentJson) : undefined
+      const knownRevisions = parseKnownRevisions(rawKnown)
       const apiKey = getKey(provider)
       const stream = getStreamFn(provider)
       await stream({
@@ -131,7 +134,7 @@ export function registerIpcHandlers() {
                 if (isRendererDocTool(name)) {
                   return requestRendererTool(event, requestId, name, input)
                 }
-                return executeDocTool(tree, name, input)
+                return executeDocTool(tree, name, input, { knownRevisions })
               },
               onToolUse: (name: string, input: unknown) =>
                 sendChatEvent(event, requestId, { type: 'tool', name, input }),

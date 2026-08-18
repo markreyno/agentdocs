@@ -3,6 +3,7 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources/messages'
 import type { JSONContent } from '@tiptap/core'
 import { buildDocTree } from '../../shared/docTree.js'
 import { DOC_TOOLS, executeDocTool } from '../../shared/docTools.js'
+import { parseKnownRevisions, type KnownRevisions } from '../../shared/docRevision.js'
 import { isRendererDocTool } from '../../shared/editTools.js'
 import {
   hasWriteIntent,
@@ -52,12 +53,14 @@ export async function runDemoChat(
   messages: ChatMessage[],
   documentJson: JSONContent | undefined,
   { send, signal }: ChatStreamHandlers,
+  knownRevisions: KnownRevisions = {},
 ): Promise<void> {
   const tree = documentJson ? buildDocTree(documentJson) : undefined
   const convo: MessageParam[] = messages.map((m) => ({ role: m.role, content: m.content }))
   const writeIntent = hasWriteIntent(latestUserText(messages))
   let rendererToolUsed = false
   let writeNudgeInjected = false
+  const toolCtx = { knownRevisions }
 
   for (let iteration = 0; iteration < DEMO_MAX_TOOL_ITERATIONS; iteration++) {
     if (signal.aborted) break
@@ -67,7 +70,7 @@ export async function runDemoChat(
         model: DEMO_MODEL,
         max_tokens: DEMO_MAX_TOKENS,
         messages: convo,
-        ...(tree ? { tools: [...DOC_TOOLS] } : {}),
+        ...(tree ? { tools: [...DOC_TOOLS] as unknown as Anthropic.Tool[] } : {}),
       },
       { signal },
     )
@@ -87,7 +90,7 @@ export async function runDemoChat(
         if (block.type !== 'tool_use') continue
         if (isRendererDocTool(block.name)) rendererToolUsed = true
         send({ tool: block.name, input: block.input })
-        const result = executeDocTool(tree, block.name, block.input as Record<string, unknown>)
+        const result = executeDocTool(tree, block.name, block.input as Record<string, unknown>, toolCtx)
         toolResults.push({
           type: 'tool_result',
           tool_use_id: block.id,

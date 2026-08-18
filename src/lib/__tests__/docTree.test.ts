@@ -76,6 +76,9 @@ describe('buildDocTree', () => {
     expect(paragraph.children).toHaveLength(2)
     expect(paragraph.children![0]!.text).toBe('First sentence.')
     expect(paragraph.children![1]!.text).toBe('Second sentence.')
+    expect(tree.hash).toMatch(/^[0-9a-f]{12}$/)
+    expect(chapter.hash).toBeTruthy()
+    expect(paragraph.blobHash).toBeTruthy()
   })
 
   it('inserts an Act layer when three heading levels are present', () => {

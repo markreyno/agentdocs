@@ -1,5 +1,6 @@
 import { streamChat, type ChatMessage } from './chatClient'
 import { isDesktopApp } from './isDesktop'
+import type { KnownRevisions } from './docRevision'
 import {
   getActiveProvider,
   getModelFor,
@@ -19,6 +20,8 @@ interface SendChatHandlers {
 export interface SendChatOptions {
   /** Executes tools that need the live editor (e.g. replace_text) in the desktop app. */
   executeRendererTool?: (name: string, input: Record<string, unknown>) => Promise<unknown>
+  /** Git-style hashes of nodes the agent already loaded this chat. */
+  knownRevisions?: KnownRevisions
 }
 
 function isCachableProvider(provider: string): provider is CachableProviderId {
@@ -44,10 +47,11 @@ export function sendChatMessage(
       promptCaching,
       documentJson,
       executeRendererTool: options?.executeRendererTool,
+      knownRevisions: options?.knownRevisions,
     })
   }
 
   const controller = new AbortController()
-  void streamChat(messages, handlers, documentJson, controller.signal)
+  void streamChat(messages, handlers, documentJson, controller.signal, options?.knownRevisions)
   return () => controller.abort()
 }
