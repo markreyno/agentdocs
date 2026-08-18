@@ -350,6 +350,138 @@ export interface SentenceMatch {
   pos: { from: number; to: number }
 }
 
+export interface PassageMatch {
+  paragraphId: string
+  sceneId: string
+  chapterId: string
+  path: string[]
+  /** Relevance score used to order results; meaningful only within this result set. */
+  score: number
+  matchedTerms: string[]
+  text: string
+  before?: { paragraphId: string; text: string }[]
+  after?: { paragraphId: string; text: string }[]
+  pos: { from: number; to: number }
+}
+
+export interface PassageSearchOptions {
+  /** Restrict search to this book/act/chapter/scene/paragraph subtree. */
+  scopeId?: string
+  /** Maximum ranked passages to return. Clamped to 1-20. */
+  limit?: number
+  /** Neighboring paragraphs to include on each side. Clamped to 0-2. */
+  context?: number
+}
+
+const PASSAGE_STOP_WORDS = new Set([
+  'a', 'an', 'and', 'are', 'as', 'at', 'be', 'but', 'by', 'for', 'from', 'had', 'has',
+  'have', 'he', 'her', 'hers', 'him', 'his', 'i', 'in', 'is', 'it', 'its', 'of', 'on',
+  'or', 'she', 'that', 'the', 'their', 'them', 'they', 'this', 'to', 'was', 'were',
+  'with', 'you', 'your',
+])
+
+function searchableTerms(value: string): string[] {
+  return Array.from(
+    new Set(
+      value
+        .toLocaleLowerCase()
+        .match(/[\p{L}\p{N}']+/gu)
+        ?.filter((term) => term.length > 1 && !PASSAGE_STOP_WORDS.has(term)) ?? [],
+    ),
+  )
+}
+
+function paragraphText(node: DocNode): string {
+  return (node.children ?? [])
+    .map((child) => child.text ?? '')
+    .filter(Boolean)
+    .join(' ')
+}
+
+/**
+ * Ranked prose retrieval for agent navigation. Unlike searchSentences (literal grep),
+ * this scores paragraphs by query-term coverage and phrase proximity, then returns a
+ * bounded amount of neighboring prose so the model can judge a hit without loading
+ * the enclosing chapter or scene.
+ */
+export function searchPassages(
+  root: DocNode,
+  query: string,
+  options: PassageSearchOptions = {},
+): PassageMatch[] {
+  const scope = options.scopeId ? getNode(root, options.scopeId) : root
+  if (!scope) return []
+
+  const normalizedQuery = query.trim().toLocaleLowerCase()
+  const terms = searchableTerms(query)
+  if (!normalizedQuery || terms.length === 0) return []
+
+  const limit = Math.min(20, Math.max(1, Math.trunc(options.limit ?? 8)))
+  const context = Math.min(2, Math.max(0, Math.trunc(options.context ?? 1)))
+  const candidates: PassageMatch[] = []
+
+  const walk = (
+    node: DocNode,
+    trail: string[],
+    chapterId?: string,
+    sceneId?: string,
+  ) => {
+    const nextChapter = node.type === 'chapter' ? node.id : chapterId
+    const nextScene = node.type === 'scene' ? node.id : sceneId
+    const nextTrail =
+      node.type === 'book' || node.type === 'act' || node.type === 'chapter' || node.type === 'scene'
+        ? [...trail, node.title ?? node.type]
+        : trail
+
+    if (node.type === 'paragraph' && nextChapter && nextScene) {
+      const text = paragraphText(node)
+      const lower = text.toLocaleLowerCase()
+      const haystackTerms = new Set(searchableTerms(text))
+      const matchedTerms = terms.filter((term) => haystackTerms.has(term))
+      if (matchedTerms.length > 0) {
+        const coverage = matchedTerms.length / terms.length
+        const phraseBonus = lower.includes(normalizedQuery) ? 2 : 0
+        const density = matchedTerms.reduce(
+          (sum, term) => sum + Math.min(3, lower.split(term).length - 1),
+          0,
+        ) / Math.max(1, searchableTerms(text).length)
+        const siblings = node.type === 'paragraph'
+          ? (getNode(root, nextScene)?.children ?? []).filter((child) => child.type === 'paragraph')
+          : []
+        const index = siblings.findIndex((sibling) => sibling.id === node.id)
+        const mapNeighbor = (sibling: DocNode) => ({
+          paragraphId: sibling.id,
+          text: paragraphText(sibling),
+        })
+        const before = context > 0 && index >= 0
+          ? siblings.slice(Math.max(0, index - context), index).map(mapNeighbor)
+          : undefined
+        const after = context > 0 && index >= 0
+          ? siblings.slice(index + 1, index + 1 + context).map(mapNeighbor)
+          : undefined
+        candidates.push({
+          paragraphId: node.id,
+          sceneId: nextScene,
+          chapterId: nextChapter,
+          path: nextTrail,
+          score: Number((coverage * 10 + phraseBonus + density).toFixed(3)),
+          matchedTerms,
+          text,
+          ...(before?.length ? { before } : {}),
+          ...(after?.length ? { after } : {}),
+          pos: node.pos,
+        })
+      }
+    }
+    node.children?.forEach((child) => walk(child, nextTrail, nextChapter, nextScene))
+  }
+
+  walk(scope, [])
+  return candidates
+    .sort((a, b) => b.score - a.score || a.pos.from - b.pos.from)
+    .slice(0, limit)
+}
+
 /** Fine-grained search returning scene:sentence hits, like grep returning file:line. */
 export function searchSentences(root: DocNode, query: string): SentenceMatch[] {
   const q = query.toLowerCase()

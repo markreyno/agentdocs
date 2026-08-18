@@ -1,4 +1,4 @@
-import { searchOutline, searchSentences, type DocNode } from './docTree.js'
+import { getNode, searchOutline, searchPassages, searchSentences, type DocNode } from './docTree.js'
 import {
   bookStatus,
   getNodeForAgent,
@@ -34,6 +34,34 @@ export const DOC_TOOLS = [
       type: 'object',
       properties: {
         query: { type: 'string', description: 'Keyword or phrase to search for' },
+      },
+      required: ['query'],
+    },
+  },
+  {
+    name: 'search_passages',
+    description:
+      'Preferred prose discovery tool. Ranks matching paragraphs by query-term coverage and phrase proximity, ' +
+      'and returns a small neighboring-paragraph window plus chapter/scene ids. Use it for themes, actions, ' +
+      'relationships, character behavior, and other searches where you do not know the exact wording. ' +
+      'Optionally scope the search to an act, chapter, or scene id from search_outline. ' +
+      'Use search_sentences instead for an exact quotation, spelling, name, or literal replacement audit.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Words or short phrase describing the prose to locate' },
+        scope_id: {
+          type: 'string',
+          description: 'Optional book/act/chapter/scene id whose descendants should be searched',
+        },
+        limit: {
+          type: 'number',
+          description: 'Maximum ranked passages to return, 1-20. Default 8.',
+        },
+        context: {
+          type: 'number',
+          description: 'Neighboring paragraphs on each side, 0-2. Default 1.',
+        },
       },
       required: ['query'],
     },
@@ -243,6 +271,18 @@ export function executeDocTool(
   switch (name as DocToolName) {
     case 'search_outline':
       return searchOutline(tree, String(input.query ?? ''))
+    case 'search_passages': {
+      const scopeId = typeof input.scope_id === 'string' ? input.scope_id : undefined
+      if (scopeId && !getNode(tree, scopeId)) {
+        return { error: `No scope node with id "${scopeId}"` }
+      }
+      const matches = searchPassages(tree, String(input.query ?? ''), {
+        scopeId,
+        limit: typeof input.limit === 'number' ? input.limit : undefined,
+        context: typeof input.context === 'number' ? input.context : undefined,
+      })
+      return { matches, total: matches.length }
+    }
     case 'search_sentences': {
       const hits = searchSentences(tree, String(input.query ?? ''))
       const cap = 40

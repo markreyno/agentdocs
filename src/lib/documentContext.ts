@@ -8,9 +8,10 @@ export function withDocumentContext(
 
 The manuscript is versioned like git. Each chapter, scene, and paragraph has a content hash.
 A catalog of chapter/scene titles is included below — that is NOT the prose. A 50,000-word book must never be dumped into this chat.
-- Use search_outline or the catalog to locate a chapter, then get_node on that chapter or scene id.
+- Use search_passages first for themes, actions, relationships, character behavior, or when you do not know the exact wording. It returns ranked paragraphs with bounded surrounding context.
+- Use search_outline or the catalog to narrow a broad search to a chapter/scene, then pass that id as search_passages.scope_id or call get_node when full scene prose is necessary.
 - Never call get_node with id "book". Never call get_story_blocks to read the story; it is an index of hashes/previews.
-- Use search_sentences like git grep for a quote or name. Prefer get_node on M (author-edited) nodes.
+- Use search_sentences like git grep only for an exact quote, spelling, name, or literal replacement audit. Prefer get_node on M (author-edited) nodes.
 - Call get_story_blocks only for replace_story / insert_blocks indices. Pass indices/ids (max 20) only when you need those block bodies.
 
 When the user asks you to edit, rewrite, improve, fix, or change manuscript text:
@@ -31,7 +32,7 @@ When the user asks a question or wants brainstorming (not an edit), answer norma
   const hasDocument = Boolean(ctx.document.trim())
   sections.push(
     hasDocument
-      ? 'Manuscript: available via tools (doc_status, search_outline, search_sentences, get_node, get_story_blocks).'
+      ? 'Manuscript: available via tools (doc_status, search_outline, search_passages, search_sentences, get_node, get_story_blocks).'
       : `Manuscript: (empty)
 When the manuscript is empty and the user asks you to create, write, draft, generate, or compose a story/scene/chapter:
 - You MUST call get_story_blocks then insert_blocks in this turn (use after_index: -1).

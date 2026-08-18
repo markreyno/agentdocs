@@ -4,6 +4,7 @@ import {
   flattenIndex,
   getNode,
   searchOutline,
+  searchPassages,
   searchSentences,
 } from '../docTree'
 import type { JSONContent } from '@tiptap/core'
@@ -219,5 +220,24 @@ describe('searchOutline / searchSentences', () => {
   it('finds multiple sentence hits across chapters', () => {
     const hits = searchSentences(tree, 'the')
     expect(hits.length).toBeGreaterThan(1)
+  })
+
+  it('ranks passages and includes bounded neighboring context', () => {
+    const passages = searchPassages(tree, 'found key gate', { limit: 2, context: 1 })
+
+    expect(passages).toHaveLength(1)
+    expect(passages[0]!.paragraphId).toBe('book/ch-0/sc-0/p-0')
+    expect(passages[0]!.matchedTerms).toEqual(['found', 'key', 'gate'])
+    expect(passages[0]!.chapterId).toBe('book/ch-0')
+    expect(passages[0]!.path).toContain('The Garden')
+  })
+
+  it('supports structural scope and result limits', () => {
+    const garden = searchPassages(tree, 'spire key', { scopeId: 'book/ch-0', limit: 1, context: 0 })
+    const tower = searchPassages(tree, 'spire key', { scopeId: 'book/ch-1', limit: 1, context: 0 })
+
+    expect(garden[0]!.text).toContain('key')
+    expect(tower[0]!.text).toContain('spire')
+    expect(garden[0]!.before).toBeUndefined()
   })
 })
