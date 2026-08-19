@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import {
   createDocument,
+  deleteDocument,
   formatRelativeTime,
   getOrCreateUser,
   listRecentDocuments,
@@ -26,6 +27,7 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
   const [userId] = useState(() => getOrCreateUser().id)
   const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(userId))
   const [showSettings, setShowSettings] = useState(false)
+  const [pendingDelete, setPendingDelete] = useState<DocumentRecord | null>(null)
   const [appVersion, setAppVersion] = useState<string | null>(null)
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
 
@@ -56,6 +58,13 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
     void window.agentdocs?.updater.install()
   }
 
+  const handleConfirmDelete = () => {
+    if (!pendingDelete) return
+    deleteDocument(pendingDelete.id)
+    setDocuments(listRecentDocuments(userId))
+    setPendingDelete(null)
+  }
+
   return (
     <div className="desktop-home">
       <header className="desktop-home-header">
@@ -74,6 +83,14 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
       <UpdateBanner status={updateStatus} onInstall={handleInstallUpdate} onDismiss={() => setUpdateStatus({ state: 'idle' })} />
 
       {showSettings && <ProviderSettingsPanel onClose={() => setShowSettings(false)} />}
+
+      {pendingDelete && (
+        <DeleteConfirmDialog
+          title={pendingDelete.title}
+          onCancel={() => setPendingDelete(null)}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
 
       <main className="desktop-home-main">
         <section className="desktop-home-hero">
@@ -98,7 +115,7 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
           ) : (
             <ul className="desktop-home-doc-list">
               {documents.map((doc) => (
-                <li key={doc.id}>
+                <li key={doc.id} className="desktop-home-doc-item">
                   <button
                     type="button"
                     onClick={() => onOpenDocument(doc.id)}
@@ -113,6 +130,14 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
                         Edited {formatRelativeTime(doc.updatedAt)}
                       </span>
                     </span>
+                  </button>
+                  <button
+                    type="button"
+                    className="desktop-home-doc-delete"
+                    aria-label={`Delete ${doc.title}`}
+                    onClick={() => setPendingDelete(doc)}
+                  >
+                    <TrashIcon />
                   </button>
                 </li>
               ))}
@@ -176,6 +201,52 @@ function UpdateBanner({
   )
 }
 
+function DeleteConfirmDialog({
+  title,
+  onCancel,
+  onConfirm,
+}: {
+  title: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onCancel()
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [onCancel])
+
+  return (
+    <div className="desktop-home-confirm" role="presentation" onClick={onCancel}>
+      <div
+        className="desktop-home-confirm-card"
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="desktop-home-delete-title"
+        aria-describedby="desktop-home-delete-desc"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="desktop-home-delete-title" className="desktop-home-confirm-title">
+          Delete document?
+        </h2>
+        <p id="desktop-home-delete-desc" className="desktop-home-confirm-body">
+          “{title}” will be permanently removed. This cannot be undone.
+        </p>
+        <div className="desktop-home-confirm-actions">
+          <button type="button" className="desktop-home-confirm-cancel" onClick={onCancel} autoFocus>
+            Cancel
+          </button>
+          <button type="button" className="desktop-home-confirm-delete" onClick={onConfirm}>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function DocIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" width={20} height={20} aria-hidden="true">
@@ -186,6 +257,20 @@ function DocIcon() {
       />
       <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.5" />
       <path d="M8 12h8M8 16h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" width={14} height={14} aria-hidden="true">
+      <path
+        d="M3 4h10M6.5 4V2.5h3V4M5 4l.5 9h5L11 4"
+        stroke="currentColor"
+        strokeWidth="1.25"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

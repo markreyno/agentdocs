@@ -941,12 +941,16 @@ code {
   gap: 12px;
 }
 
+.desktop-home-doc-item {
+  position: relative;
+}
+
 .desktop-home-doc-card {
   display: flex;
   align-items: flex-start;
   gap: 12px;
   width: 100%;
-  padding: 16px;
+  padding: 16px 40px 16px 16px;
   border: 1px solid var(--home-border);
   border-radius: 4px;
   background: var(--home-card);
@@ -956,9 +960,117 @@ code {
   font-family: var(--sans);
 }
 
-.desktop-home-doc-card:hover {
+.desktop-home-doc-card:hover,
+.desktop-home-doc-item:focus-within .desktop-home-doc-card {
   border-color: #0078d4;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.desktop-home-doc-delete {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--home-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.1s, background 0.1s, color 0.1s;
+}
+
+.desktop-home-doc-item:hover .desktop-home-doc-delete,
+.desktop-home-doc-item:focus-within .desktop-home-doc-delete {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .desktop-home-doc-delete {
+    opacity: 1;
+  }
+}
+
+.desktop-home-doc-delete:hover,
+.desktop-home-doc-delete:focus-visible {
+  background: color-mix(in srgb, var(--ribbon-danger) 12%, transparent);
+  color: var(--ribbon-danger);
+}
+
+.desktop-home-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.desktop-home-confirm-card {
+  width: 100%;
+  max-width: 400px;
+  padding: 24px;
+  border: 1px solid var(--home-border);
+  border-radius: 4px;
+  background: var(--home-surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.desktop-home-confirm-title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--home-text-strong);
+}
+
+.desktop-home-confirm-body {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--home-muted);
+}
+
+.desktop-home-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.desktop-home-confirm-cancel,
+.desktop-home-confirm-delete {
+  padding: 8px 14px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--sans);
+  cursor: pointer;
+}
+
+.desktop-home-confirm-cancel {
+  border: 1px solid var(--home-border);
+  background: var(--home-card);
+  color: var(--home-text);
+}
+
+.desktop-home-confirm-cancel:hover {
+  background: var(--home-bg);
+}
+
+.desktop-home-confirm-delete {
+  border: 1px solid var(--ribbon-danger);
+  background: var(--ribbon-danger);
+  color: #fff;
+}
+
+.desktop-home-confirm-delete:hover {
+  filter: brightness(0.92);
 }
 
 .desktop-home-doc-icon {

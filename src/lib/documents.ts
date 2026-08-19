@@ -99,6 +99,14 @@ export function saveDocument(
   return updated
 }
 
+export function deleteDocument(id: string): boolean {
+  const documents = readDocuments()
+  const next = documents.filter((doc) => doc.id !== id)
+  if (next.length === documents.length) return false
+  writeDocuments(next)
+  return true
+}
+
 export function formatRelativeTime(timestamp: number): string {
   const diff = Date.now() - timestamp
   const minutes = Math.floor(diff / 60_000)
