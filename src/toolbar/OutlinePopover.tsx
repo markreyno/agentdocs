@@ -16,12 +16,37 @@ const OUTLINE_TYPE_LABEL: Record<'book' | 'act' | 'chapter' | 'scene', string> =
 }
 
 function outlineLabel(node: DocNode): string {
-  const title = node.title?.trim()
+  const title = sanitizeOutlineText(node.title).trim()
   if (title) return title
   if (node.type === 'book' || node.type === 'act' || node.type === 'chapter' || node.type === 'scene') {
     return `${OUTLINE_TYPE_LABEL[node.type]} ${node.order + 1}`
   }
   return node.type
+}
+
+function sanitizeOutlineText(value: string | undefined): string {
+  if (!value) return ''
+  let out = ''
+  for (const ch of value) {
+    const cp = ch.codePointAt(0)!
+    if (cp === 0 || (cp >= 0xd800 && cp <= 0xdfff)) continue
+    if (cp < 32) continue
+    out += ch
+  }
+  return out
+}
+
+function toOutlineTree(node: DocNode): DocNode {
+  return {
+    id: node.id,
+    type: node.type,
+    order: node.order,
+    title: sanitizeOutlineText(node.title) || undefined,
+    pos: node.pos,
+    children: (node.children ?? [])
+      .filter((child) => OUTLINE_TYPES.has(child.type))
+      .map(toOutlineTree),
+  }
 }
 
 function jumpToOutlineNode(editor: Editor, node: DocNode) {
@@ -104,6 +129,7 @@ function OutlineTreeNode({
 export function OutlinePopover({ editor, documentTitle }: { editor: Editor; documentTitle?: string }) {
   const [open, setOpen] = useState(false)
   const [tree, setTree] = useState<DocNode | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
   useClickOutside(containerRef, open, () => setOpen(false))
@@ -112,13 +138,29 @@ export function OutlinePopover({ editor, documentTitle }: { editor: Editor; docu
     if (!open) return
 
     const refresh = () => {
-      setTree(buildDocTree(editor.getJSON(), documentTitle?.trim() || 'Untitled document'))
+      try {
+        const next = toOutlineTree(
+          buildDocTree(editor.getJSON(), documentTitle?.trim() || 'Untitled document'),
+        )
+        setTree(next)
+        setError(null)
+      } catch (cause) {
+        console.error('Failed to build document outline', cause)
+        setTree(null)
+        setError('Could not build the document outline for this file.')
+      }
     }
 
     refresh()
-    editor.on('update', refresh)
+    let timer = 0
+    const onUpdate = () => {
+      window.clearTimeout(timer)
+      timer = window.setTimeout(refresh, 250)
+    }
+    editor.on('update', onUpdate)
     return () => {
-      editor.off('update', refresh)
+      window.clearTimeout(timer)
+      editor.off('update', onUpdate)
     }
   }, [open, editor, documentTitle])
 
@@ -131,22 +173,28 @@ export function OutlinePopover({ editor, documentTitle }: { editor: Editor; docu
         <Icon><OutlineIcon /></Icon>
       </ToolbarButton>
 
-      {open && tree && (
+      {open && (tree || error) && (
         <div className="outlook-outline-panel" role="dialog" aria-label="Document outline">
           <div className="outlook-outline-header">Document outline</div>
-          <ul className="outlook-outline-list">
-            <OutlineTreeNode
-              node={tree}
-              depth={0}
-              editor={editor}
-              onNavigate={() => setOpen(false)}
-            />
-          </ul>
-          {!hasSections && (
-            <p className="outlook-outline-empty">
-              Add headings to build acts, chapters, and scenes.
-            </p>
-          )}
+          {error ? (
+            <p className="outlook-outline-empty">{error}</p>
+          ) : tree ? (
+            <>
+              <ul className="outlook-outline-list">
+                <OutlineTreeNode
+                  node={tree}
+                  depth={0}
+                  editor={editor}
+                  onNavigate={() => setOpen(false)}
+                />
+              </ul>
+              {!hasSections && (
+                <p className="outlook-outline-empty">
+                  Add headings to build acts, chapters, and scenes.
+                </p>
+              )}
+            </>
+          ) : null}
         </div>
       )}
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type DragEvent } from 'react'
 import {
   createDocument,
   deleteDocument,
@@ -7,6 +7,7 @@ import {
   listRecentDocuments,
   type DocumentRecord,
 } from './lib/documents'
+import { ImportError, importManuscriptFile } from './lib/importDocument'
 import ProviderSettingsPanel from './ProviderSettingsPanel'
 
 type UpdateStatus =
@@ -28,6 +29,10 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
   const [documents, setDocuments] = useState<DocumentRecord[]>(() => listRecentDocuments(userId))
   const [showSettings, setShowSettings] = useState(false)
   const [pendingDelete, setPendingDelete] = useState<DocumentRecord | null>(null)
+  const [importing, setImporting] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const [dropActive, setDropActive] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [appVersion, setAppVersion] = useState<string | null>(null)
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus>({ state: 'idle' })
 
@@ -65,8 +70,49 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
     setPendingDelete(null)
   }
 
+  const handleImportedFile = async (file: File | undefined) => {
+    if (!file || importing) return
+    setImportError(null)
+    setImporting(true)
+    try {
+      const imported = await importManuscriptFile(file)
+      const doc = createDocument(userId, imported)
+      setDocuments(listRecentDocuments(userId))
+      onNewDocument(doc.id)
+    } catch (error) {
+      setImportError(
+        error instanceof ImportError
+          ? error.message
+          : error instanceof Error
+            ? error.message
+            : 'Could not import that file.',
+      )
+    } finally {
+      setImporting(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
+  const handleDrop = (event: DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setDropActive(false)
+    void handleImportedFile(event.dataTransfer.files[0])
+  }
+
   return (
-    <div className="desktop-home">
+    <div
+      className={`desktop-home${dropActive ? ' desktop-home-drop-active' : ''}`}
+      onDragEnter={(event) => {
+        event.preventDefault()
+        setDropActive(true)
+      }}
+      onDragOver={(event) => event.preventDefault()}
+      onDragLeave={(event) => {
+        if (event.currentTarget.contains(event.relatedTarget as Node)) return
+        setDropActive(false)
+      }}
+      onDrop={handleDrop}
+    >
       <header className="desktop-home-header">
         <span className="desktop-home-logo">agentdocs</span>
         <div className="desktop-home-user">
@@ -96,10 +142,29 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
         <section className="desktop-home-hero">
           <h1 className="desktop-home-title">Your documents</h1>
           <p className="desktop-home-subtitle">Pick up where you left off or start something new.</p>
-          <button type="button" onClick={handleNewDocument} className="desktop-home-new-btn">
-            <span className="desktop-home-new-icon" aria-hidden="true">+</span>
-            New document
-          </button>
+          <div className="desktop-home-hero-actions">
+            <button type="button" onClick={handleNewDocument} className="desktop-home-new-btn" disabled={importing}>
+              <span className="desktop-home-new-icon" aria-hidden="true">+</span>
+              New document
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="desktop-home-upload-btn"
+              disabled={importing}
+            >
+              <UploadIcon />
+              {importing ? 'Importing…' : 'Upload Word or PDF'}
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".docx,.doc,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/msword"
+              hidden
+              onChange={(event) => void handleImportedFile(event.target.files?.[0])}
+            />
+          </div>
+          {importError && <p className="desktop-home-import-error" role="alert">{importError}</p>}
         </section>
 
         <section className="desktop-home-recent">
@@ -108,9 +173,19 @@ export default function DesktopHomePage({ onNewDocument, onOpenDocument }: Deskt
           {documents.length === 0 ? (
             <div className="desktop-home-empty">
               <p>No documents yet.</p>
-              <button type="button" onClick={handleNewDocument} className="desktop-home-empty-btn">
-                Create your first document
-              </button>
+              <div className="desktop-home-hero-actions desktop-home-empty-actions">
+                <button type="button" onClick={handleNewDocument} className="desktop-home-empty-btn">
+                  Create your first document
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="desktop-home-empty-btn"
+                  disabled={importing}
+                >
+                  Upload Word or PDF
+                </button>
+              </div>
             </div>
           ) : (
             <ul className="desktop-home-doc-list">
@@ -257,6 +332,20 @@ function DocIcon() {
       />
       <path d="M14 3v5h5" stroke="currentColor" strokeWidth="1.5" />
       <path d="M8 12h8M8 16h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+function UploadIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="none" width={16} height={16} aria-hidden="true">
+      <path
+        d="M8 11.5V3.5M8 3.5 5.5 6M8 3.5 10.5 6M3 12.5v.5a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-.5"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   )
 }

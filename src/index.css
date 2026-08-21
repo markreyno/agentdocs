@@ -663,6 +663,14 @@ code {
   padding: 0;
   list-style: none;
   overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.outlook-outline-item > .outlook-outline-list {
+  overflow: visible;
+  flex: none;
+  max-height: none;
 }
 
 .outlook-outline-item {
@@ -865,25 +873,64 @@ code {
   color: var(--home-muted);
 }
 
-.desktop-home-new-btn {
+.desktop-home-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.desktop-home-new-btn,
+.desktop-home-upload-btn {
   display: inline-flex;
   align-items: center;
   gap: 10px;
   padding: 12px 20px;
-  border: 1px solid #0078d4;
   border-radius: 2px;
-  background: #0078d4;
-  color: #fff;
   font-size: 15px;
   font-weight: 500;
   font-family: var(--sans);
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 0.1s, border-color 0.1s;
 }
 
-.desktop-home-new-btn:hover {
+.desktop-home-new-btn {
+  border: 1px solid #0078d4;
+  background: #0078d4;
+  color: #fff;
+}
+
+.desktop-home-new-btn:hover:not(:disabled) {
   background: #106ebe;
   border-color: #106ebe;
+}
+
+.desktop-home-upload-btn {
+  border: 1px solid var(--home-border-strong);
+  background: var(--home-card);
+  color: var(--home-text);
+}
+
+.desktop-home-upload-btn:hover:not(:disabled) {
+  border-color: #0078d4;
+  background: var(--home-bg);
+}
+
+.desktop-home-new-btn:disabled,
+.desktop-home-upload-btn:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.desktop-home-import-error {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--ribbon-danger);
+}
+
+.desktop-home-drop-active {
+  outline: 2px dashed #0078d4;
+  outline-offset: -8px;
 }
 
 .desktop-home-new-icon {
@@ -930,6 +977,10 @@ code {
 
 .desktop-home-empty-btn:hover {
   background: var(--home-bg);
+}
+
+.desktop-home-empty-actions {
+  justify-content: center;
 }
 
 .desktop-home-doc-list {

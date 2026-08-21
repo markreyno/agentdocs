@@ -66,12 +66,17 @@ export function getDocument(id: string): DocumentRecord | undefined {
   return readDocuments().find((doc) => doc.id === id)
 }
 
-export function createDocument(userId: string): DocumentRecord {
+export function createDocument(
+  userId: string,
+  init?: { title?: string; content?: string },
+): DocumentRecord {
+  const title = init?.title?.trim() || 'Untitled document'
+  const content = init?.content?.trim() ? init.content : '<p></p>'
   const doc: DocumentRecord = {
     id: crypto.randomUUID(),
     userId,
-    title: 'Untitled document',
-    content: '<p></p>',
+    title,
+    content,
     updatedAt: Date.now(),
   }
 

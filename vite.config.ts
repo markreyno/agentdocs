@@ -7,6 +7,9 @@ export default defineConfig({
   // Relative asset URLs so the packaged Electron app can load via file://
   base: './',
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    include: ['mammoth', 'pdfjs-dist'],
+  },
   server: {
     proxy: {
       '/api': 'http://localhost:8787',
