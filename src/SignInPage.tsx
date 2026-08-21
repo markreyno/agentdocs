@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import BrandLogo from './BrandLogo'
 import {
   PASSWORD_MAX,
   PASSWORD_MIN_SOLO,
@@ -150,7 +151,7 @@ export default function SignInPage({ onBack, onSignedIn, mode, onMode, token }: 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0f0f0f] via-[#1a1a2e] to-[#16213e] text-gray-100 flex flex-col font-serif">
       <nav className="flex items-center justify-between px-12 py-5 border-b border-white/8">
-        <span className="text-xl font-bold tracking-tight text-white">agentdocs</span>
+        <BrandLogo />
         <button
           type="button"
           onClick={onBack}

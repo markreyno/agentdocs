@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import BrandLogo from './BrandLogo'
 import { useTheme } from './lib/theme'
 
 interface LandingPageProps {
@@ -129,9 +130,7 @@ export default function LandingPage({ onGetStarted, onLearn, onDownload }: Landi
           isDark ? 'border-white/8' : 'border-black/8'
         }`}
       >
-        <span className={`text-xl font-bold tracking-tight ${isDark ? 'text-white' : 'text-gray-900'}`}>
-          agentdocs
-        </span>
+        <BrandLogo isDark={isDark} />
         <div className="flex items-center gap-3">
           <button
             onClick={onLearn}

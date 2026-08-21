@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import BrandLogo from './BrandLogo'
 
 interface LearnPageProps {
   onBack: () => void
@@ -110,7 +111,7 @@ export default function LearnPage({ onBack, onGetStarted }: LearnPageProps) {
               <path d="M4 7h16M4 12h16M4 17h16" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" />
             </svg>
           </button>
-          <span className="text-xl font-bold tracking-tight text-white">agentdocs</span>
+          <BrandLogo />
           <span className="hidden sm:inline text-xs font-sans text-gray-500 border-l border-white/10 pl-3 ml-1">
             Docs
           </span>
